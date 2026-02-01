@@ -6,7 +6,6 @@ export const runtime = "nodejs";
 export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
-  console.log("Documents API called");
   try {
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -22,14 +21,8 @@ export async function GET(request: NextRequest) {
           pageCount: true,
           fileSize: true,
           createdAt: true,
-          _count: {
-            select: {
-              chunks: true,
-              mentions: true,
-            },
-          },
         },
-        orderBy: { filename: "asc" },
+        orderBy: { createdAt: "desc" },
         skip,
         take: limit,
       }),
@@ -44,8 +37,8 @@ export async function GET(request: NextRequest) {
         pageCount: d.pageCount,
         fileSize: d.fileSize,
         createdAt: d.createdAt,
-        chunkCount: d._count.chunks,
-        mentionCount: d._count.mentions,
+        chunkCount: 0,
+        mentionCount: 0,
       })),
       pagination: {
         page,
@@ -57,7 +50,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Documents error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch documents" },
+      { error: "Failed to fetch documents", details: String(error) },
       { status: 500 }
     );
   }
