@@ -1,10 +1,7 @@
 /**
  * Document Ingestion Script for Epstein Files
  * 
- * Processes DataSet folders containing litigation-format documents:
- * - Scans DataSet folders in Downloads
- * - Extracts text from PDFs
- * - Creates embeddings and indexes for search
+ * Runs CONTINUOUSLY until all documents are processed
  * 
  * Usage: npx tsx scripts/ingest.ts
  */
@@ -15,59 +12,36 @@ import * as path from "path";
 import * as pdfParse from "pdf-parse";
 import { PrismaClient } from "@prisma/client";
 import OpenAI from "openai";
+import { execSync } from "child_process";
 import Tesseract from "tesseract.js";
+import * as os from "os";
 
-// Handle both ESM and CJS exports
 const pdf = (pdfParse as unknown as { default?: typeof pdfParse }).default || pdfParse;
-
-// OCR settings
-const USE_OCR = true; // Enable OCR for image-based PDFs
-const MIN_TEXT_LENGTH = 100; // Minimum characters before trying OCR
 
 const prisma = new PrismaClient();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// DataSet locations
+// Settings
 const DOWNLOADS_DIR = path.join(process.env.HOME || "", "Downloads");
-const DATASET_PATTERN = /^DataSet \d+$/;
+const DATASET_PATTERN = /^DataSet \d+$/; // ALL datasets
+const TEMP_DIR = path.join(os.tmpdir(), "epstein-ocr");
 
-const CHUNK_SIZE = 500; // tokens (approximate)
-const CHUNK_OVERLAP = 50; // tokens overlap between chunks
-const EMBEDDING_BATCH_SIZE = 20; // Process embeddings in batches
-const MAX_DOCUMENTS_PER_RUN = 500; // Limit per run to manage costs
+const PARALLEL_WORKERS = 5;
+const MIN_TEXT_LENGTH = 50;
+const CHUNK_SIZE = 500;
+const CHUNK_OVERLAP = 50;
+const EMBEDDING_BATCH_SIZE = 20;
+const PROGRESS_INTERVAL = 100; // Log progress every N documents
 
-// Notable names to extract mentions for
 const NOTABLE_NAMES = [
-  "Bill Gates",
-  "Donald Trump",
-  "Bill Clinton",
-  "Hillary Clinton",
-  "Prince Andrew",
-  "Alan Dershowitz",
-  "Ghislaine Maxwell",
-  "Les Wexner",
-  "Stephen Hawking",
-  "Elon Musk",
-  "Kevin Spacey",
-  "Chris Tucker",
-  "Naomi Campbell",
-  "Jean-Luc Brunel",
-  "Ehud Barak",
-  "Larry Summers",
-  "Leon Black",
-  "Marvin Minsky",
-  "Reid Hoffman",
-  "George Mitchell",
-  "Glenn Dubin",
-  "Eva Dubin",
-  "Sarah Kellen",
-  "Nadia Marcinkova",
-  "Virginia Giuffre",
-  "Virginia Roberts",
-  "Jeffrey Epstein",
-  "Palm Beach",
-  "Little St. James",
-  "Zorro Ranch",
+  "Bill Gates", "Donald Trump", "Bill Clinton", "Hillary Clinton",
+  "Prince Andrew", "Alan Dershowitz", "Ghislaine Maxwell", "Les Wexner",
+  "Stephen Hawking", "Elon Musk", "Kevin Spacey", "Chris Tucker",
+  "Naomi Campbell", "Jean-Luc Brunel", "Ehud Barak", "Larry Summers",
+  "Leon Black", "Marvin Minsky", "Reid Hoffman", "George Mitchell",
+  "Glenn Dubin", "Eva Dubin", "Sarah Kellen", "Nadia Marcinkova",
+  "Virginia Giuffre", "Virginia Roberts", "Jeffrey Epstein",
+  "Palm Beach", "Little St. James", "Zorro Ranch",
 ];
 
 interface ProcessingStats {
@@ -76,22 +50,70 @@ interface ProcessingStats {
   chunksCreated: number;
   embeddingsCreated: number;
   mentionsExtracted: number;
-  errors: string[];
+  errors: number;
+  startTime: number;
 }
 
-// Find all DataSet folders
+function ensureTempDir() {
+  if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  }
+}
+
+function cleanupTempFiles(prefix: string) {
+  try {
+    const files = fs.readdirSync(TEMP_DIR);
+    for (const file of files) {
+      if (file.startsWith(prefix)) {
+        fs.unlinkSync(path.join(TEMP_DIR, file));
+      }
+    }
+  } catch (e) {}
+}
+
+function pdfToImage(pdfPath: string, outputPrefix: string): string | null {
+  try {
+    const outputPath = path.join(TEMP_DIR, outputPrefix);
+    execSync(`pdftoppm -png -f 1 -l 1 -r 150 "${pdfPath}" "${outputPath}"`, {
+      timeout: 30000,
+      stdio: 'pipe'
+    });
+    
+    const expectedFile = `${outputPath}-1.png`;
+    if (fs.existsSync(expectedFile)) return expectedFile;
+    
+    const altFile = `${outputPath}.png`;
+    if (fs.existsSync(altFile)) return altFile;
+    
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function ocrImage(imagePath: string): Promise<string> {
+  try {
+    const result = await Tesseract.recognize(imagePath, "eng", {
+      logger: () => {},
+    });
+    return result.data.text || "";
+  } catch (error) {
+    return "";
+  }
+}
+
 function findDataSetFolders(): string[] {
   const entries = fs.readdirSync(DOWNLOADS_DIR, { withFileTypes: true });
-  const datasets = entries
+  return entries
     .filter((e) => e.isDirectory() && DATASET_PATTERN.test(e.name))
     .map((e) => path.join(DOWNLOADS_DIR, e.name))
-    .sort();
-  
-  console.log(`Found ${datasets.length} DataSet folders`);
-  return datasets;
+    .sort((a, b) => {
+      const numA = parseInt(path.basename(a).match(/\d+/)?.[0] || "0");
+      const numB = parseInt(path.basename(b).match(/\d+/)?.[0] || "0");
+      return numA - numB;
+    });
 }
 
-// Find all PDFs in a DataSet folder
 function findPDFsInDataSet(datasetPath: string): string[] {
   const pdfs: string[] = [];
   
@@ -106,22 +128,18 @@ function findPDFsInDataSet(datasetPath: string): string[] {
           pdfs.push(fullPath);
         }
       }
-    } catch (err) {
-      // Skip inaccessible directories
-    }
+    } catch (err) {}
   }
   
   scanDir(datasetPath);
   return pdfs;
 }
 
-// Approximate token count (rough estimate: 4 chars per token)
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-// Split text into chunks with overlap
-function chunkText(text: string, maxTokens: number = CHUNK_SIZE, overlap: number = CHUNK_OVERLAP): string[] {
+function chunkText(text: string): string[] {
   const chunks: string[] = [];
   const sentences = text.split(/(?<=[.!?])\s+/);
   
@@ -131,12 +149,10 @@ function chunkText(text: string, maxTokens: number = CHUNK_SIZE, overlap: number
   for (const sentence of sentences) {
     const sentenceTokens = estimateTokens(sentence);
     
-    if (currentTokens + sentenceTokens > maxTokens && currentChunk) {
+    if (currentTokens + sentenceTokens > CHUNK_SIZE && currentChunk) {
       chunks.push(currentChunk.trim());
-      
-      // Keep overlap from previous chunk
       const words = currentChunk.split(/\s+/);
-      const overlapWords = words.slice(-Math.ceil(overlap / 2));
+      const overlapWords = words.slice(-Math.ceil(CHUNK_OVERLAP / 2));
       currentChunk = overlapWords.join(" ") + " " + sentence;
       currentTokens = estimateTokens(currentChunk);
     } else {
@@ -145,313 +161,286 @@ function chunkText(text: string, maxTokens: number = CHUNK_SIZE, overlap: number
     }
   }
   
-  if (currentChunk.trim()) {
-    chunks.push(currentChunk.trim());
-  }
-  
-  return chunks.filter((c) => c.length > 50); // Filter out very short chunks
+  if (currentChunk.trim()) chunks.push(currentChunk.trim());
+  return chunks.filter((c) => c.length > 50);
 }
 
-// Find mentions of notable names in text
 function findMentions(text: string): { name: string; normalizedName: string; context: string }[] {
   const mentions: { name: string; normalizedName: string; context: string }[] = [];
   const textLower = text.toLowerCase();
   
   for (const name of NOTABLE_NAMES) {
     const nameLower = name.toLowerCase();
-    let searchIndex = 0;
-    
-    while (true) {
-      const index = textLower.indexOf(nameLower, searchIndex);
-      if (index === -1) break;
-      
-      // Extract context around the mention
-      const start = Math.max(0, index - 100);
-      const end = Math.min(text.length, index + name.length + 100);
-      const context = text.substring(start, end).trim();
-      
+    let idx = 0;
+    while ((idx = textLower.indexOf(nameLower, idx)) !== -1) {
+      const start = Math.max(0, idx - 100);
+      const end = Math.min(text.length, idx + name.length + 100);
       mentions.push({
-        name: name,
+        name,
         normalizedName: nameLower,
-        context: context,
+        context: text.substring(start, end).trim(),
       });
-      
-      searchIndex = index + 1;
+      idx++;
     }
   }
-  
   return mentions;
 }
 
-// Create embeddings for chunks in batches
 async function createEmbeddings(texts: string[]): Promise<number[][]> {
   const embeddings: number[][] = [];
   
   for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
-    
     try {
       const response = await openai.embeddings.create({
         model: "text-embedding-3-small",
         input: batch,
       });
-      
       embeddings.push(...response.data.map((d) => d.embedding));
-      
-      // Progress indicator
-      process.stdout.write(`\r    Embeddings: ${embeddings.length}/${texts.length}`);
     } catch (error) {
-      console.error(`\n    Error creating embeddings for batch ${i}:`, error);
-      // Add empty embeddings for failed batch
       embeddings.push(...batch.map(() => []));
     }
-    
-    // Small delay to respect rate limits
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((r) => setTimeout(r, 50));
   }
-  
-  console.log(); // New line after progress
   return embeddings;
 }
 
-// Process a single PDF file
-async function processDocument(filepath: string, stats: ProcessingStats): Promise<boolean> {
+async function extractDocument(filepath: string): Promise<{
+  filename: string;
+  text: string;
+  pageCount?: number;
+  fileSize: number;
+  filepath: string;
+} | null> {
   const filename = path.basename(filepath);
+  const filePrefix = filename.replace(/[^a-zA-Z0-9]/g, "_");
   
   try {
-    // Check if already processed
-    const existing = await prisma.document.findUnique({
-      where: { filename },
-    });
-    
-    if (existing) {
-      stats.documentsSkipped++;
-      return false;
-    }
-    
-    // Read and parse PDF
     const dataBuffer = fs.readFileSync(filepath);
-    
-    let text: string = "";
+    let text = "";
     let pageCount: number | undefined;
-    let usedOCR = false;
     
     try {
       const pdfData = await pdf(dataBuffer);
       text = pdfData.text || "";
       pageCount = pdfData.numpages;
-    } catch (pdfError) {
-      // PDF parsing failed, will try OCR if enabled
+    } catch (e) {
       text = "";
     }
     
-    // If we got very little text and OCR is enabled, try OCR
-    if (text.trim().length < MIN_TEXT_LENGTH && USE_OCR) {
-      try {
-        console.log(`    Attempting OCR for: ${filename}`);
-        const ocrResult = await Tesseract.recognize(filepath, "eng", {
-          logger: () => {}, // Suppress progress logs
-        });
-        text = ocrResult.data.text || "";
-        usedOCR = true;
-        if (text.trim().length > MIN_TEXT_LENGTH) {
-          console.log(`    OCR successful: extracted ${text.length} chars`);
-        }
-      } catch (ocrError) {
-        // OCR failed, continue with whatever text we have
-        console.log(`    OCR failed for ${filename}`);
+    if (text.trim().length < MIN_TEXT_LENGTH) {
+      const imagePath = pdfToImage(filepath, filePrefix);
+      if (imagePath) {
+        text = await ocrImage(imagePath);
+        cleanupTempFiles(filePrefix);
       }
     }
     
     if (!text || text.trim().length < 50) {
-      // Skip documents with very little text even after OCR
-      return false;
+      return null;
     }
     
-    console.log(`  Processing: ${filename} (${text.length} chars${usedOCR ? ", via OCR" : ""})`);
-    
-    // Create document record
+    return {
+      filename,
+      text,
+      pageCount,
+      fileSize: dataBuffer.length,
+      filepath,
+    };
+  } catch (error) {
+    cleanupTempFiles(filePrefix);
+    return null;
+  }
+}
+
+async function saveDocument(
+  data: { filename: string; text: string; pageCount?: number; fileSize: number; filepath: string },
+  stats: ProcessingStats
+): Promise<boolean> {
+  try {
     const document = await prisma.document.create({
       data: {
-        filename,
-        title: filename.replace(/\.[^/.]+$/, ""),
-        content: text,
-        pageCount,
-        fileSize: dataBuffer.length,
-        sourceUrl: filepath,
+        filename: data.filename,
+        title: data.filename.replace(/\.[^/.]+$/, ""),
+        content: data.text,
+        pageCount: data.pageCount,
+        fileSize: data.fileSize,
+        sourceUrl: data.filepath,
       },
     });
     
-    // Chunk the text
-    const chunks = chunkText(text);
+    const chunks = chunkText(data.text);
     
     if (chunks.length > 0) {
-      // Create embeddings
       const embeddings = await createEmbeddings(chunks);
       
-      // Store chunks with embeddings
       for (let i = 0; i < chunks.length; i++) {
         const embedding = embeddings[i];
         
         if (embedding && embedding.length > 0) {
-          // Use raw SQL to insert with vector
           const embeddingStr = `[${embedding.join(",")}]`;
           await prisma.$executeRaw`
             INSERT INTO "Chunk" (id, "documentId", content, "pageNumber", "chunkIndex", embedding, "createdAt")
-            VALUES (
-              ${`chunk_${document.id}_${i}`},
-              ${document.id},
-              ${chunks[i]},
-              ${1},
-              ${i},
-              ${embeddingStr}::vector,
-              NOW()
-            )
+            VALUES (${`chunk_${document.id}_${i}`}, ${document.id}, ${chunks[i]}, ${1}, ${i}, ${embeddingStr}::vector, NOW())
           `;
+          stats.embeddingsCreated++;
         } else {
           await prisma.chunk.create({
-            data: {
-              id: `chunk_${document.id}_${i}`,
-              documentId: document.id,
-              content: chunks[i],
-              pageNumber: 1,
-              chunkIndex: i,
-            },
+            data: { id: `chunk_${document.id}_${i}`, documentId: document.id, content: chunks[i], pageNumber: 1, chunkIndex: i },
           });
         }
-        
         stats.chunksCreated++;
-        if (embedding && embedding.length > 0) stats.embeddingsCreated++;
       }
     }
     
-    // Extract and store mentions
-    const mentions = findMentions(text);
+    const mentions = findMentions(data.text).slice(0, 50);
     if (mentions.length > 0) {
-      // Limit to first 50 mentions per document
-      const limitedMentions = mentions.slice(0, 50);
       await prisma.mention.createMany({
-        data: limitedMentions.map((m) => ({
+        data: mentions.map((m) => ({
           documentId: document.id,
           name: m.name,
           normalizedName: m.normalizedName,
           context: m.context,
         })),
       });
-      stats.mentionsExtracted += limitedMentions.length;
+      stats.mentionsExtracted += mentions.length;
     }
     
     stats.documentsProcessed++;
     return true;
-    
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    stats.errors.push(`${filename}: ${errorMessage}`);
+    stats.errors++;
     return false;
   }
 }
 
-// Main ingestion function
+function formatTime(seconds: number): string {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
+}
+
+function printProgress(stats: ProcessingStats, total: number, remaining: number) {
+  const elapsed = (Date.now() - stats.startTime) / 1000;
+  const rate = stats.documentsProcessed / elapsed;
+  const eta = remaining / rate;
+  
+  console.log(`\n========== PROGRESS ==========`);
+  console.log(`Processed: ${stats.documentsProcessed} / ${total}`);
+  console.log(`Remaining: ${remaining}`);
+  console.log(`Rate: ${rate.toFixed(1)} docs/sec`);
+  console.log(`Elapsed: ${formatTime(elapsed)}`);
+  console.log(`ETA: ${formatTime(eta)}`);
+  console.log(`Chunks: ${stats.chunksCreated} | Embeddings: ${stats.embeddingsCreated}`);
+  console.log(`Mentions: ${stats.mentionsExtracted} | Errors: ${stats.errors}`);
+  console.log(`==============================\n`);
+}
+
 async function ingestDocuments(): Promise<void> {
-  console.log("===========================================");
-  console.log("  Epstein Files Document Ingestion");
-  console.log("===========================================\n");
+  console.log("╔═══════════════════════════════════════════╗");
+  console.log("║  EPSTEIN FILES - CONTINUOUS INGESTION     ║");
+  console.log("║  Press Ctrl+C to stop                     ║");
+  console.log("╚═══════════════════════════════════════════╝\n");
   
-  // Check for OpenAI API key
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "sk-your-openai-api-key-here") {
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("your")) {
     console.error("⚠️  OpenAI API key not configured!");
-    console.error("Please set OPENAI_API_KEY in your .env file");
-    console.error("\nEdit: /Users/kyle/Documents/Nahla.Chat/epstein-files/.env");
     process.exit(1);
   }
   
-  // Find all DataSet folders
+  try { execSync("which pdftoppm", { stdio: 'pipe' }); } catch {
+    console.error("⚠️  pdftoppm not found. Run: brew install poppler");
+    process.exit(1);
+  }
+  
+  ensureTempDir();
+  
+  // Find all datasets
   const datasets = findDataSetFolders();
+  console.log(`Found ${datasets.length} DataSet folders:\n`);
   
-  if (datasets.length === 0) {
-    console.error("⚠️  No DataSet folders found in Downloads");
-    process.exit(1);
-  }
-  
-  // Collect all PDFs
-  console.log("\nScanning for PDF files...");
   const allPDFs: string[] = [];
-  
-  for (const dataset of datasets) {
-    const pdfs = findPDFsInDataSet(dataset);
-    console.log(`  ${path.basename(dataset)}: ${pdfs.length} PDFs`);
+  for (const ds of datasets) {
+    const pdfs = findPDFsInDataSet(ds);
+    console.log(`  ${path.basename(ds)}: ${pdfs.length.toLocaleString()} PDFs`);
     allPDFs.push(...pdfs);
   }
   
-  console.log(`\nTotal PDFs found: ${allPDFs.length}`);
+  console.log(`\n  TOTAL: ${allPDFs.length.toLocaleString()} PDFs\n`);
   
-  // Check how many are already processed
-  const existingCount = await prisma.document.count();
-  console.log(`Already processed: ${existingCount}`);
+  // Get already processed
+  const existing = await prisma.document.findMany({ select: { filename: true } });
+  const processedFilenames = new Set(existing.map(e => e.filename));
+  console.log(`Already processed: ${processedFilenames.size.toLocaleString()}`);
   
-  const toProcess = Math.min(allPDFs.length, MAX_DOCUMENTS_PER_RUN);
-  console.log(`Will process up to: ${toProcess} documents this run\n`);
+  // Filter to unprocessed
+  const toProcess = allPDFs.filter(p => !processedFilenames.has(path.basename(p)));
+  console.log(`To process: ${toProcess.length.toLocaleString()}\n`);
+  
+  if (toProcess.length === 0) {
+    console.log("✓ All documents already processed!");
+    return;
+  }
   
   const stats: ProcessingStats = {
     documentsProcessed: 0,
-    documentsSkipped: 0,
+    documentsSkipped: processedFilenames.size,
     chunksCreated: 0,
     embeddingsCreated: 0,
     mentionsExtracted: 0,
-    errors: [],
+    errors: 0,
+    startTime: Date.now(),
   };
   
-  // Process documents
-  let processed = 0;
-  for (const pdfPath of allPDFs) {
-    if (stats.documentsProcessed >= MAX_DOCUMENTS_PER_RUN) {
-      console.log(`\nReached limit of ${MAX_DOCUMENTS_PER_RUN} documents per run.`);
-      console.log("Run the script again to process more.");
-      break;
+  console.log("Starting continuous processing...\n");
+  
+  let index = 0;
+  while (index < toProcess.length) {
+    // Process batch in parallel
+    const batch = toProcess.slice(index, index + PARALLEL_WORKERS);
+    const extractPromises = batch.map(extractDocument);
+    const results = await Promise.all(extractPromises);
+    
+    // Save results
+    for (const result of results) {
+      if (result) {
+        const saved = await saveDocument(result, stats);
+        if (saved) {
+          console.log(`  ✓ ${result.filename} (${result.text.length} chars)`);
+        }
+      }
     }
     
-    const wasProcessed = await processDocument(pdfPath, stats);
-    processed++;
+    index += PARALLEL_WORKERS;
     
-    // Progress update every 50 files
-    if (processed % 50 === 0) {
-      console.log(`\n--- Progress: ${processed}/${allPDFs.length} files checked ---\n`);
+    // Progress update
+    if (stats.documentsProcessed > 0 && stats.documentsProcessed % PROGRESS_INTERVAL === 0) {
+      printProgress(stats, allPDFs.length, toProcess.length - index);
     }
   }
   
-  console.log("\n===========================================");
-  console.log("  Ingestion Complete");
-  console.log("===========================================");
-  console.log(`Documents processed: ${stats.documentsProcessed}`);
-  console.log(`Documents skipped (already done): ${stats.documentsSkipped}`);
-  console.log(`Chunks created: ${stats.chunksCreated}`);
-  console.log(`Embeddings created: ${stats.embeddingsCreated}`);
-  console.log(`Mentions extracted: ${stats.mentionsExtracted}`);
-  
-  if (stats.errors.length > 0) {
-    console.log(`\nErrors (${stats.errors.length}):`);
-    stats.errors.slice(0, 10).forEach((e) => console.log(`  - ${e}`));
-    if (stats.errors.length > 10) {
-      console.log(`  ... and ${stats.errors.length - 10} more`);
-    }
-  }
-  
-  const remaining = allPDFs.length - stats.documentsProcessed - stats.documentsSkipped;
-  if (remaining > 0) {
-    console.log(`\n⚠️  ${remaining} documents remaining. Run the script again to continue.`);
-  } else {
-    console.log("\n✓ All documents processed!");
-  }
-  
-  console.log("\nStart the app with 'npm run dev' to browse and search.");
+  // Final stats
+  const elapsed = (Date.now() - stats.startTime) / 1000;
+  console.log("\n╔═══════════════════════════════════════════╗");
+  console.log("║  INGESTION COMPLETE                       ║");
+  console.log("╚═══════════════════════════════════════════╝");
+  console.log(`Total processed: ${stats.documentsProcessed.toLocaleString()}`);
+  console.log(`Total time: ${formatTime(elapsed)}`);
+  console.log(`Chunks: ${stats.chunksCreated.toLocaleString()}`);
+  console.log(`Embeddings: ${stats.embeddingsCreated.toLocaleString()}`);
+  console.log(`Mentions: ${stats.mentionsExtracted.toLocaleString()}`);
+  if (stats.errors > 0) console.log(`Errors: ${stats.errors}`);
 }
 
-// Run ingestion
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+  console.log("\n\nShutting down gracefully...");
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
 ingestDocuments()
-  .catch((error) => {
-    console.error("Ingestion failed:", error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());
