@@ -5,8 +5,8 @@
 .env.local
 .env.production
 
-# Documents folder (large files)
-documents/
+# Documents folder (large files) - only root level
+/documents/
 
 # dependencies
 /node_modules
