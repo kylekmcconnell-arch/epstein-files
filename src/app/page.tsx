@@ -1,65 +1,188 @@
+import { SearchBar } from "@/components/SearchBar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import Image from "next/image";
 
-export default function Home() {
+async function getStats() {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const res = await fetch(`${baseUrl}/api/stats`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+export default async function HomePage() {
+  const stats = await getStats();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="max-w-6xl mx-auto font-mono">
+      {/* Hero Section */}
+      <div className="relative py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          {/* Left side - Title and Search */}
+          <div>
+            <div className="mb-8">
+              <p className="text-xs text-muted-foreground mb-3 tracking-widest uppercase">
+                Document Analysis System
+              </p>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+                Epstein Files
+              </h1>
+              <p className="text-base text-muted-foreground mt-3 max-w-md">
+                Search and analyze publicly released court documents with AI-powered insights.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-sm text-muted-foreground mb-8">
+              <p className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                Full-text search across all documents
+              </p>
+              <p className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                AI-powered semantic analysis
+              </p>
+              <p className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                Name mention tracking & extraction
+              </p>
+            </div>
+
+            <SearchBar
+              size="large"
+              placeholder="Search documents..."
+              className="max-w-xl"
+            />
+          </div>
+
+          {/* Right side - ASCII Art Image */}
+          <div className="hidden lg:flex justify-center items-center">
+            <div className="relative w-96 h-96">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-2xl"></div>
+              <Image
+                src="/epstein-ascii.png"
+                alt="Database Subject"
+                fill
+                className="object-contain mix-blend-lighten opacity-90 hover:opacity-100 transition-opacity"
+                priority
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Section */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <div className="bg-card border border-border rounded-lg p-5">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Documents</p>
+          <p className="text-3xl font-bold text-foreground">
+            {stats?.documents?.toLocaleString() || "—"}
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="bg-card border border-border rounded-lg p-5">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Indexed Chunks</p>
+          <p className="text-3xl font-bold text-foreground">
+            {stats?.chunks?.toLocaleString() || "—"}
+          </p>
         </div>
-      </main>
+        <div className="bg-card border border-border rounded-lg p-5">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Name Mentions</p>
+          <p className="text-3xl font-bold text-foreground">
+            {stats?.mentions?.toLocaleString() || "—"}
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-lg p-5">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Status</p>
+          <p className="text-3xl font-bold text-primary">Online</p>
+        </div>
+      </div>
+
+      {/* Top Mentions */}
+      {stats?.topMentions && stats.topMentions.length > 0 && (
+        <div className="mb-10">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-4">
+            Most Referenced Names
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {stats.topMentions.map(
+              (mention: { name: string; count: number }) => (
+                <Link
+                  key={mention.name}
+                  href={`/mentions?name=${encodeURIComponent(mention.name)}`}
+                >
+                  <Badge
+                    variant="secondary"
+                    className="text-sm py-1.5 px-4 cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                  >
+                    {mention.name} <span className="text-muted-foreground ml-1">({mention.count})</span>
+                  </Badge>
+                </Link>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Quick Links */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+        <Link href="/documents">
+          <Card className="border-border hover:border-primary/50 hover:bg-card/80 transition-all cursor-pointer h-full group">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-semibold group-hover:text-primary transition-colors">
+                Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                Browse all indexed document files with extracted content and metadata.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/mentions">
+          <Card className="border-border hover:border-primary/50 hover:bg-card/80 transition-all cursor-pointer h-full group">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-semibold group-hover:text-primary transition-colors">
+                Name Mentions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                Track and cross-reference individual names across all documents.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/ask">
+          <Card className="border-border hover:border-primary/50 hover:bg-card/80 transition-all cursor-pointer h-full group">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-semibold group-hover:text-primary transition-colors">
+                AI Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                Ask questions in natural language and get AI-powered answers with citations.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Disclaimer */}
+      <div className="border border-border rounded-lg bg-card/50 p-5 text-sm">
+        <p className="text-muted-foreground leading-relaxed">
+          <span className="font-medium text-foreground">Disclaimer:</span> This system provides access to publicly released court documents for research 
+          and journalistic purposes. All documents are sourced from public records. 
+          The presence of a name in these documents does not imply wrongdoing.
+        </p>
+      </div>
     </div>
   );
 }

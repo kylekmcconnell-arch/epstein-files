@@ -1,5 +1,13 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Environment files
+.env
+.env.local
+.env.production
+
+# Documents folder (large files)
+documents/
+
 # dependencies
 /node_modules
 /.pnp
@@ -39,3 +47,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma

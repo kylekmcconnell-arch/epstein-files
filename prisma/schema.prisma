@@ -1,0 +1,59 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector, pg_trgm]
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  filename  String   @unique
+  title     String?
+  content   String   @db.Text
+  pageCount Int?
+  sourceUrl String?
+  fileSize  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  chunks    Chunk[]
+  mentions  Mention[]
+
+  @@index([filename])
+  @@index([createdAt])
+}
+
+model Chunk {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  pageNumber Int?
+  chunkIndex Int
+  embedding  Unsupported("vector(1536)")?
+  createdAt  DateTime @default(now())
+
+  @@index([documentId])
+  @@index([pageNumber])
+}
+
+model Mention {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  name       String
+  normalizedName String
+  context    String   @db.Text
+  pageNumber Int?
+  createdAt  DateTime @default(now())
+
+  @@index([documentId])
+  @@index([name])
+  @@index([normalizedName])
+}
