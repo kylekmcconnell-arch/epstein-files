@@ -6,7 +6,10 @@ import Image from "next/image";
 
 async function getStats() {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    // Use VERCEL_URL in production, localhost in dev
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const res = await fetch(`${baseUrl}/api/stats`, {
       cache: "no-store",
     });
