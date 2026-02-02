@@ -25,18 +25,27 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     async function fetchDocuments() {
       setLoading(true);
+      setError(false);
       try {
         const res = await fetch(`/api/documents?page=${page}&limit=20`);
         const data = await res.json();
-        setDocuments(data.documents);
-        setPagination(data.pagination);
-      } catch (error) {
-        console.error("Failed to fetch documents:", error);
+        if (data.error || !data.documents) {
+          setError(true);
+          setDocuments([]);
+        } else {
+          setDocuments(data.documents);
+          setPagination(data.pagination);
+        }
+      } catch (err) {
+        console.error("Failed to fetch documents:", err);
+        setError(true);
+        setDocuments([]);
       } finally {
         setLoading(false);
       }
@@ -67,6 +76,13 @@ export default function DocumentsPage() {
               <Skeleton className="h-32 w-full" />
             </div>
           ))}
+        </div>
+      ) : error ? (
+        <div className="text-center py-12">
+          <h2 className="text-xl font-semibold mb-2">Connection Error</h2>
+          <p className="text-muted-foreground mb-4">
+            Unable to connect to the database. Please try again later.
+          </p>
         </div>
       ) : documents.length === 0 ? (
         <div className="text-center py-12">
