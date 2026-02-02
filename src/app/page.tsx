@@ -1,28 +1,10 @@
 import { SearchBar } from "@/components/SearchBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import Image from "next/image";
+import { StatsDisplay } from "@/components/StatsDisplay";
 
-async function getStats() {
-  try {
-    // Use VERCEL_URL in production, localhost in dev
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    const res = await fetch(`${baseUrl}/api/stats`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
-export default async function HomePage() {
-  const stats = await getStats();
-
+export default function HomePage() {
   return (
     <div className="max-w-6xl mx-auto font-mono">
       {/* Hero Section */}
@@ -80,57 +62,8 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* Stats Section */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        <div className="bg-card border border-border rounded-lg p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Documents</p>
-          <p className="text-3xl font-bold text-foreground">
-            {stats?.documents?.toLocaleString() || "—"}
-          </p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Indexed Chunks</p>
-          <p className="text-3xl font-bold text-foreground">
-            {stats?.chunks?.toLocaleString() || "—"}
-          </p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Name Mentions</p>
-          <p className="text-3xl font-bold text-foreground">
-            {stats?.mentions?.toLocaleString() || "—"}
-          </p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Status</p>
-          <p className="text-3xl font-bold text-primary">Online</p>
-        </div>
-      </div>
-
-      {/* Top Mentions */}
-      {stats?.topMentions && stats.topMentions.length > 0 && (
-        <div className="mb-10">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-4">
-            Most Referenced Names
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {stats.topMentions.map(
-              (mention: { name: string; count: number }) => (
-                <Link
-                  key={mention.name}
-                  href={`/mentions?name=${encodeURIComponent(mention.name)}`}
-                >
-                  <Badge
-                    variant="secondary"
-                    className="text-sm py-1.5 px-4 cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                  >
-                    {mention.name} <span className="text-muted-foreground ml-1">({mention.count})</span>
-                  </Badge>
-                </Link>
-              )
-            )}
-          </div>
-        </div>
-      )}
+      {/* Stats - Client Side Component */}
+      <StatsDisplay />
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
