@@ -14,15 +14,23 @@ interface Stats {
 export function StatsDisplay() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetch("/api/stats")
       .then((res) => res.json())
       .then((data) => {
-        setStats(data);
+        if (data.error) {
+          setError(true);
+        } else {
+          setStats(data);
+        }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
   }, []);
 
   return (
@@ -32,19 +40,19 @@ export function StatsDisplay() {
         <div className="bg-card border border-border rounded-lg p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Documents</p>
           <p className="text-3xl font-bold text-foreground">
-            {loading ? "..." : stats?.documents?.toLocaleString() || "0"}
+            {loading ? "..." : error ? "—" : stats?.documents?.toLocaleString() || "0"}
           </p>
         </div>
         <div className="bg-card border border-border rounded-lg p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Indexed Chunks</p>
           <p className="text-3xl font-bold text-foreground">
-            {loading ? "..." : stats?.chunks?.toLocaleString() || "0"}
+            {loading ? "..." : error ? "—" : stats?.chunks?.toLocaleString() || "0"}
           </p>
         </div>
         <div className="bg-card border border-border rounded-lg p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Name Mentions</p>
           <p className="text-3xl font-bold text-foreground">
-            {loading ? "..." : stats?.mentions?.toLocaleString() || "0"}
+            {loading ? "..." : error ? "—" : stats?.mentions?.toLocaleString() || "0"}
           </p>
         </div>
         <div className="bg-card border border-border rounded-lg p-5">
@@ -54,7 +62,7 @@ export function StatsDisplay() {
       </div>
 
       {/* Top Mentions */}
-      {stats?.topMentions && stats.topMentions.length > 0 && (
+      {!error && stats?.topMentions && stats.topMentions.length > 0 && (
         <div className="mb-10">
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-4">
             Most Referenced Names
