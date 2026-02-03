@@ -1,7 +1,7 @@
 /**
  * Document Ingestion Script for Epstein Files
  * 
- * Runs CONTINUOUSLY until all documents are processed
+ * Improved OCR with higher resolution and quality filtering
  * 
  * Usage: npx tsx scripts/ingest.ts
  */
@@ -21,17 +21,41 @@ const pdf = (pdfParse as unknown as { default?: typeof pdfParse }).default || pd
 const prisma = new PrismaClient();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Settings
+// Folder locations
 const DOWNLOADS_DIR = path.join(process.env.HOME || "", "Downloads");
-const DATASET_PATTERN = /^DataSet \d+$/; // ALL datasets
 const TEMP_DIR = path.join(os.tmpdir(), "epstein-ocr");
 
-const PARALLEL_WORKERS = 5;
-const MIN_TEXT_LENGTH = 50;
+// Patterns to find document folders
+const FOLDER_PATTERNS = [
+  /^DataSet \d+$/,      // DataSet 1, DataSet 2, etc.
+  /^VOL\d+$/i,          // VOL00010, VOL00011, VOL00012
+  /^dataset\d+/i,       // dataset9-more-complete
+];
+
+// OCR Settings - IMPROVED
+const OCR_DPI = 300;            // Higher resolution for better accuracy (was 150)
+const PARALLEL_WORKERS = 3;     // Reduced for OCR quality
+const MIN_TEXT_LENGTH = 100;    // Minimum text to consider valid
+const MIN_WORD_RATIO = 0.3;     // At least 30% should be real words
 const CHUNK_SIZE = 500;
 const CHUNK_OVERLAP = 50;
 const EMBEDDING_BATCH_SIZE = 20;
-const PROGRESS_INTERVAL = 100; // Log progress every N documents
+const PROGRESS_INTERVAL = 50;
+
+// Common English words for quality check
+const COMMON_WORDS = new Set([
+  "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
+  "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
+  "this", "but", "his", "by", "from", "they", "we", "say", "her", "she",
+  "or", "an", "will", "my", "one", "all", "would", "there", "their", "what",
+  "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
+  "when", "make", "can", "like", "time", "no", "just", "him", "know", "take",
+  "people", "into", "year", "your", "good", "some", "could", "them", "see", "other",
+  "than", "then", "now", "look", "only", "come", "its", "over", "think", "also",
+  "back", "after", "use", "two", "how", "our", "work", "first", "well", "way",
+  "even", "new", "want", "because", "any", "these", "give", "day", "most", "us",
+  "is", "was", "are", "been", "has", "had", "were", "said", "did", "made",
+]);
 
 const NOTABLE_NAMES = [
   "Bill Gates", "Donald Trump", "Bill Clinton", "Hillary Clinton",
@@ -47,10 +71,11 @@ const NOTABLE_NAMES = [
 interface ProcessingStats {
   documentsProcessed: number;
   documentsSkipped: number;
+  ocrUsed: number;
+  ocrFailed: number;
   chunksCreated: number;
   embeddingsCreated: number;
   mentionsExtracted: number;
-  errors: number;
   startTime: number;
 }
 
@@ -71,11 +96,31 @@ function cleanupTempFiles(prefix: string) {
   } catch (e) {}
 }
 
+// Check if text is readable (not garbage)
+function isReadableText(text: string): boolean {
+  if (!text || text.length < MIN_TEXT_LENGTH) return false;
+  
+  // Split into words
+  const words = text.toLowerCase().match(/[a-z]{2,}/g) || [];
+  if (words.length < 10) return false;
+  
+  // Check ratio of common words
+  const commonCount = words.filter(w => COMMON_WORDS.has(w)).length;
+  const ratio = commonCount / words.length;
+  
+  // Also check for excessive special characters
+  const alphaNumeric = text.match(/[a-zA-Z0-9]/g) || [];
+  const alphaRatio = alphaNumeric.length / text.length;
+  
+  return ratio >= MIN_WORD_RATIO && alphaRatio >= 0.5;
+}
+
+// Convert PDF to image using pdftoppm with higher DPI
 function pdfToImage(pdfPath: string, outputPrefix: string): string | null {
   try {
     const outputPath = path.join(TEMP_DIR, outputPrefix);
-    execSync(`pdftoppm -png -f 1 -l 1 -r 150 "${pdfPath}" "${outputPath}"`, {
-      timeout: 30000,
+    execSync(`pdftoppm -png -f 1 -l 1 -r ${OCR_DPI} "${pdfPath}" "${outputPath}"`, {
+      timeout: 60000,
       stdio: 'pipe'
     });
     
@@ -102,19 +147,29 @@ async function ocrImage(imagePath: string): Promise<string> {
   }
 }
 
-function findDataSetFolders(): string[] {
-  const entries = fs.readdirSync(DOWNLOADS_DIR, { withFileTypes: true });
-  return entries
-    .filter((e) => e.isDirectory() && DATASET_PATTERN.test(e.name))
-    .map((e) => path.join(DOWNLOADS_DIR, e.name))
-    .sort((a, b) => {
-      const numA = parseInt(path.basename(a).match(/\d+/)?.[0] || "0");
-      const numB = parseInt(path.basename(b).match(/\d+/)?.[0] || "0");
-      return numA - numB;
-    });
+function findDocumentFolders(): string[] {
+  const folders: string[] = [];
+  
+  try {
+    const entries = fs.readdirSync(DOWNLOADS_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        for (const pattern of FOLDER_PATTERNS) {
+          if (pattern.test(entry.name)) {
+            folders.push(path.join(DOWNLOADS_DIR, entry.name));
+            break;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error scanning Downloads:", err);
+  }
+  
+  return folders.sort();
 }
 
-function findPDFsInDataSet(datasetPath: string): string[] {
+function findPDFs(folderPath: string): string[] {
   const pdfs: string[] = [];
   
   function scanDir(dir: string) {
@@ -131,12 +186,8 @@ function findPDFsInDataSet(datasetPath: string): string[] {
     } catch (err) {}
   }
   
-  scanDir(datasetPath);
+  scanDir(folderPath);
   return pdfs;
-}
-
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
 }
 
 function chunkText(text: string): string[] {
@@ -147,14 +198,14 @@ function chunkText(text: string): string[] {
   let currentTokens = 0;
   
   for (const sentence of sentences) {
-    const sentenceTokens = estimateTokens(sentence);
+    const sentenceTokens = Math.ceil(sentence.length / 4);
     
     if (currentTokens + sentenceTokens > CHUNK_SIZE && currentChunk) {
       chunks.push(currentChunk.trim());
       const words = currentChunk.split(/\s+/);
       const overlapWords = words.slice(-Math.ceil(CHUNK_OVERLAP / 2));
       currentChunk = overlapWords.join(" ") + " " + sentence;
-      currentTokens = estimateTokens(currentChunk);
+      currentTokens = Math.ceil(currentChunk.length / 4);
     } else {
       currentChunk += (currentChunk ? " " : "") + sentence;
       currentTokens += sentenceTokens;
@@ -205,21 +256,17 @@ async function createEmbeddings(texts: string[]): Promise<number[][]> {
   return embeddings;
 }
 
-async function extractDocument(filepath: string): Promise<{
-  filename: string;
-  text: string;
-  pageCount?: number;
-  fileSize: number;
-  filepath: string;
-} | null> {
+async function processDocument(filepath: string, stats: ProcessingStats): Promise<boolean> {
   const filename = path.basename(filepath);
-  const filePrefix = filename.replace(/[^a-zA-Z0-9]/g, "_");
+  const filePrefix = filename.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 50);
   
   try {
     const dataBuffer = fs.readFileSync(filepath);
     let text = "";
     let pageCount: number | undefined;
+    let usedOCR = false;
     
+    // Try regular PDF extraction first
     try {
       const pdfData = await pdf(dataBuffer);
       text = pdfData.text || "";
@@ -228,49 +275,47 @@ async function extractDocument(filepath: string): Promise<{
       text = "";
     }
     
-    if (text.trim().length < MIN_TEXT_LENGTH) {
+    // If not enough text, try OCR
+    if (!isReadableText(text)) {
       const imagePath = pdfToImage(filepath, filePrefix);
       if (imagePath) {
-        text = await ocrImage(imagePath);
+        const ocrText = await ocrImage(imagePath);
         cleanupTempFiles(filePrefix);
+        
+        if (isReadableText(ocrText)) {
+          text = ocrText;
+          usedOCR = true;
+          stats.ocrUsed++;
+        } else {
+          stats.ocrFailed++;
+          return false; // Skip unreadable documents
+        }
+      } else {
+        stats.ocrFailed++;
+        return false;
       }
     }
     
-    if (!text || text.trim().length < 50) {
-      return null;
+    // Final quality check
+    if (!isReadableText(text)) {
+      stats.documentsSkipped++;
+      return false;
     }
     
-    return {
-      filename,
-      text,
-      pageCount,
-      fileSize: dataBuffer.length,
-      filepath,
-    };
-  } catch (error) {
-    cleanupTempFiles(filePrefix);
-    return null;
-  }
-}
-
-async function saveDocument(
-  data: { filename: string; text: string; pageCount?: number; fileSize: number; filepath: string },
-  stats: ProcessingStats
-): Promise<boolean> {
-  try {
+    // Save to database
     const document = await prisma.document.create({
       data: {
-        filename: data.filename,
-        title: data.filename.replace(/\.[^/.]+$/, ""),
-        content: data.text,
-        pageCount: data.pageCount,
-        fileSize: data.fileSize,
-        sourceUrl: data.filepath,
+        filename,
+        title: filename.replace(/\.[^/.]+$/, ""),
+        content: text.slice(0, 100000), // Limit content size
+        pageCount,
+        fileSize: dataBuffer.length,
+        sourceUrl: filepath,
       },
     });
     
-    const chunks = chunkText(data.text);
-    
+    // Create chunks and embeddings
+    const chunks = chunkText(text);
     if (chunks.length > 0) {
       const embeddings = await createEmbeddings(chunks);
       
@@ -293,7 +338,8 @@ async function saveDocument(
       }
     }
     
-    const mentions = findMentions(data.text).slice(0, 50);
+    // Extract mentions
+    const mentions = findMentions(text).slice(0, 50);
     if (mentions.length > 0) {
       await prisma.mention.createMany({
         data: mentions.map((m) => ({
@@ -307,9 +353,11 @@ async function saveDocument(
     }
     
     stats.documentsProcessed++;
+    console.log(`  ✓ ${filename} (${text.length} chars${usedOCR ? ", OCR" : ""})`);
     return true;
+    
   } catch (error) {
-    stats.errors++;
+    cleanupTempFiles(filePrefix);
     return false;
   }
 }
@@ -317,35 +365,17 @@ async function saveDocument(
 function formatTime(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
   if (hrs > 0) return `${hrs}h ${mins}m`;
-  if (mins > 0) return `${mins}m ${secs}s`;
-  return `${secs}s`;
+  return `${mins}m`;
 }
 
-function printProgress(stats: ProcessingStats, total: number, remaining: number) {
-  const elapsed = (Date.now() - stats.startTime) / 1000;
-  const rate = stats.documentsProcessed / elapsed;
-  const eta = remaining / rate;
+async function main() {
+  console.log("╔═══════════════════════════════════════════════╗");
+  console.log("║  EPSTEIN FILES - IMPROVED OCR INGESTION       ║");
+  console.log("║  OCR: 300 DPI | Quality filtering enabled     ║");
+  console.log("╚═══════════════════════════════════════════════╝\n");
   
-  console.log(`\n========== PROGRESS ==========`);
-  console.log(`Processed: ${stats.documentsProcessed} / ${total}`);
-  console.log(`Remaining: ${remaining}`);
-  console.log(`Rate: ${rate.toFixed(1)} docs/sec`);
-  console.log(`Elapsed: ${formatTime(elapsed)}`);
-  console.log(`ETA: ${formatTime(eta)}`);
-  console.log(`Chunks: ${stats.chunksCreated} | Embeddings: ${stats.embeddingsCreated}`);
-  console.log(`Mentions: ${stats.mentionsExtracted} | Errors: ${stats.errors}`);
-  console.log(`==============================\n`);
-}
-
-async function ingestDocuments(): Promise<void> {
-  console.log("╔═══════════════════════════════════════════╗");
-  console.log("║  EPSTEIN FILES - CONTINUOUS INGESTION     ║");
-  console.log("║  Press Ctrl+C to stop                     ║");
-  console.log("╚═══════════════════════════════════════════╝\n");
-  
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("your")) {
+  if (!process.env.OPENAI_API_KEY) {
     console.error("⚠️  OpenAI API key not configured!");
     process.exit(1);
   }
@@ -357,90 +387,81 @@ async function ingestDocuments(): Promise<void> {
   
   ensureTempDir();
   
-  // Find all datasets
-  const datasets = findDataSetFolders();
-  console.log(`Found ${datasets.length} DataSet folders:\n`);
+  // Find all document folders
+  const folders = findDocumentFolders();
+  console.log(`Found ${folders.length} document folders:\n`);
   
-  const allPDFs: string[] = [];
-  for (const ds of datasets) {
-    const pdfs = findPDFsInDataSet(ds);
-    console.log(`  ${path.basename(ds)}: ${pdfs.length.toLocaleString()} PDFs`);
-    allPDFs.push(...pdfs);
+  let totalPDFs = 0;
+  const folderCounts: { folder: string; count: number }[] = [];
+  
+  for (const folder of folders) {
+    const pdfs = findPDFs(folder);
+    console.log(`  ${path.basename(folder)}: ${pdfs.length.toLocaleString()} PDFs`);
+    folderCounts.push({ folder, count: pdfs.length });
+    totalPDFs += pdfs.length;
   }
   
-  console.log(`\n  TOTAL: ${allPDFs.length.toLocaleString()} PDFs\n`);
+  console.log(`\n  TOTAL: ${totalPDFs.toLocaleString()} PDFs\n`);
   
   // Get already processed
   const existing = await prisma.document.findMany({ select: { filename: true } });
   const processedFilenames = new Set(existing.map(e => e.filename));
   console.log(`Already processed: ${processedFilenames.size.toLocaleString()}`);
   
-  // Filter to unprocessed
-  const toProcess = allPDFs.filter(p => !processedFilenames.has(path.basename(p)));
-  console.log(`To process: ${toProcess.length.toLocaleString()}\n`);
-  
-  if (toProcess.length === 0) {
-    console.log("✓ All documents already processed!");
-    return;
-  }
-  
   const stats: ProcessingStats = {
     documentsProcessed: 0,
-    documentsSkipped: processedFilenames.size,
+    documentsSkipped: 0,
+    ocrUsed: 0,
+    ocrFailed: 0,
     chunksCreated: 0,
     embeddingsCreated: 0,
     mentionsExtracted: 0,
-    errors: 0,
     startTime: Date.now(),
   };
   
-  console.log("Starting continuous processing...\n");
+  console.log("\nProcessing...\n");
   
-  let index = 0;
-  while (index < toProcess.length) {
-    // Process batch in parallel
-    const batch = toProcess.slice(index, index + PARALLEL_WORKERS);
-    const extractPromises = batch.map(extractDocument);
-    const results = await Promise.all(extractPromises);
+  // Process each folder
+  for (const folder of folders) {
+    console.log(`\n📁 ${path.basename(folder)}`);
+    const pdfs = findPDFs(folder);
     
-    // Save results
-    for (const result of results) {
-      if (result) {
-        const saved = await saveDocument(result, stats);
-        if (saved) {
-          console.log(`  ✓ ${result.filename} (${result.text.length} chars)`);
-        }
+    for (const pdfPath of pdfs) {
+      const filename = path.basename(pdfPath);
+      
+      // Skip if already processed
+      if (processedFilenames.has(filename)) continue;
+      
+      await processDocument(pdfPath, stats);
+      processedFilenames.add(filename);
+      
+      // Progress update
+      if (stats.documentsProcessed > 0 && stats.documentsProcessed % PROGRESS_INTERVAL === 0) {
+        const elapsed = (Date.now() - stats.startTime) / 1000;
+        const rate = stats.documentsProcessed / elapsed;
+        console.log(`\n--- Progress: ${stats.documentsProcessed} docs | ${rate.toFixed(1)}/sec | OCR: ${stats.ocrUsed} | Failed: ${stats.ocrFailed} ---\n`);
       }
-    }
-    
-    index += PARALLEL_WORKERS;
-    
-    // Progress update
-    if (stats.documentsProcessed > 0 && stats.documentsProcessed % PROGRESS_INTERVAL === 0) {
-      printProgress(stats, allPDFs.length, toProcess.length - index);
     }
   }
   
   // Final stats
   const elapsed = (Date.now() - stats.startTime) / 1000;
-  console.log("\n╔═══════════════════════════════════════════╗");
-  console.log("║  INGESTION COMPLETE                       ║");
-  console.log("╚═══════════════════════════════════════════╝");
-  console.log(`Total processed: ${stats.documentsProcessed.toLocaleString()}`);
-  console.log(`Total time: ${formatTime(elapsed)}`);
-  console.log(`Chunks: ${stats.chunksCreated.toLocaleString()}`);
-  console.log(`Embeddings: ${stats.embeddingsCreated.toLocaleString()}`);
-  console.log(`Mentions: ${stats.mentionsExtracted.toLocaleString()}`);
-  if (stats.errors > 0) console.log(`Errors: ${stats.errors}`);
+  console.log("\n╔═══════════════════════════════════════════════╗");
+  console.log("║  INGESTION COMPLETE                           ║");
+  console.log("╚═══════════════════════════════════════════════╝");
+  console.log(`Processed: ${stats.documentsProcessed.toLocaleString()}`);
+  console.log(`Skipped (unreadable): ${stats.documentsSkipped.toLocaleString()}`);
+  console.log(`OCR used: ${stats.ocrUsed.toLocaleString()}`);
+  console.log(`OCR failed: ${stats.ocrFailed.toLocaleString()}`);
+  console.log(`Time: ${formatTime(elapsed)}`);
 }
 
-// Handle graceful shutdown
 process.on('SIGINT', async () => {
-  console.log("\n\nShutting down gracefully...");
+  console.log("\n\nShutting down...");
   await prisma.$disconnect();
   process.exit(0);
 });
 
-ingestDocuments()
+main()
   .catch(console.error)
   .finally(() => prisma.$disconnect());
