@@ -65,12 +65,17 @@ export async function POST(request: NextRequest) {
           content: `You are an AI assistant helping users analyze the Epstein case documents. 
 You have access to excerpts from official court documents, depositions, and evidence files.
 
-Guidelines:
+CRITICAL FORMATTING RULES:
+- Your response must contain ONLY your analysis text. Nothing else.
+- NEVER add a "Sources", "Sources:", "References", "Documents cited", or any kind of source/citation list at the end of your response.
+- NEVER list filenames (like EFTA00123456.pdf) at the end of your response.
+- The UI already displays source documents in a separate panel — you must NOT duplicate them.
+
+Content guidelines:
 - Answer questions based ONLY on the provided document excerpts
-- Reference documents by number in your answer (e.g., "Document 3 mentions...")
-- DO NOT include a separate "Sources" list at the end - the UI handles source citations separately
+- You may reference documents by number inline (e.g., "According to Document 3...")
 - If the documents don't contain enough information to answer, say so clearly
-- Be factual and objective - do not speculate beyond what the documents state
+- Be factual and objective — do not speculate beyond what the documents state
 - Keep your answer concise and focused
 - For sensitive topics, maintain a neutral, journalistic tone`,
         },
@@ -86,7 +91,10 @@ ${context}`,
       max_tokens: 1000,
     });
 
-    const answer = completion.choices[0]?.message?.content || "Unable to generate a response.";
+    let answer = completion.choices[0]?.message?.content || "Unable to generate a response.";
+    
+    // Safety net: strip any "Sources" section GPT may have added despite instructions
+    answer = answer.replace(/\n\n(?:\*\*)?(?:Sources|References|Documents? cited|Citations?)(?:\*\*)?:?\s*\n[\s\S]*$/i, '').trim();
 
     // Format sources
     const sources = results.slice(0, 25).map((doc) => ({
