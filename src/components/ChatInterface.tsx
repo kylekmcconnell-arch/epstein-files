@@ -3,17 +3,13 @@
 import { useState, FormEvent, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
 
 interface Source {
-  documentId: string;
   filename: string;
-  title: string | null;
-  pageNumber: number | null;
+  sourceUrl: string;
   excerpt: string;
+  highlight?: string[];
 }
 
 interface Message {
@@ -139,20 +135,23 @@ export function ChatInterface() {
                     <div className="mt-4 pt-3 border-t border-border/50">
                       <p className="text-xs font-medium mb-2">Sources:</p>
                       <div className="space-y-2">
-                        {message.sources.map((source, i) => (
-                          <Link
+                        {message.sources.slice(0, 5).map((source, i) => (
+                          <a
                             key={i}
-                            href={`/documents/${source.documentId}`}
+                            href={source.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="block text-xs bg-background/50 rounded p-2 hover:bg-background transition-colors"
                           >
                             <span className="font-medium">{source.filename}</span>
-                            {source.pageNumber && (
-                              <span className="text-muted-foreground">
-                                {" "}(Page {source.pageNumber})
-                              </span>
-                            )}
-                          </Link>
+                            <span className="text-muted-foreground ml-2">↗</span>
+                          </a>
                         ))}
+                        {message.sources.length > 5 && (
+                          <p className="text-xs text-muted-foreground">
+                            +{message.sources.length - 5} more sources
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -161,12 +160,15 @@ export function ChatInterface() {
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <Card className="max-w-[80%]">
-                  <CardContent className="py-4">
-                    <Skeleton className="h-4 w-48 mb-2" />
-                    <Skeleton className="h-4 w-64" />
-                  </CardContent>
-                </Card>
+                <div className="max-w-[80%] rounded-lg px-4 py-3 bg-muted">
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    <span className="text-sm">Searching documents...</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This may take 30-60 seconds
+                  </p>
+                </div>
               </div>
             )}
           </div>
