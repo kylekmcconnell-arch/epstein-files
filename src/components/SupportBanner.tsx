@@ -1,8 +1,19 @@
 "use client";
 
-import { Heart, ExternalLink, Coins } from "lucide-react";
+import { useState } from "react";
+import { Heart, ExternalLink, Coins, Copy, Check } from "lucide-react";
+
+const CONTRACT_ADDRESS = "HTjWG7e27nHY5xamcUrG6pK4LybjGz2zscVC9BD5MS1o";
 
 export function SupportBanner() {
+  const [copied, setCopied] = useState(false);
+
+  const copyAddress = () => {
+    navigator.clipboard.writeText(CONTRACT_ADDRESS);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="border border-border rounded-lg bg-card/50 p-6 font-mono">
       <div className="flex items-center gap-2 mb-3">
@@ -35,18 +46,36 @@ export function SupportBanner() {
         </a>
 
         {/* Solana Token */}
-        <div className="flex items-center gap-3 p-4 border border-border rounded-lg bg-muted/30">
-          <div className="w-10 h-10 rounded-full bg-[#9945FF]/10 flex items-center justify-center flex-shrink-0">
-            <Coins className="w-5 h-5 text-[#9945FF]" />
+        <div className="p-4 border border-border rounded-lg bg-muted/30">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-[#9945FF]/10 flex items-center justify-center flex-shrink-0">
+              <Coins className="w-5 h-5 text-[#9945FF]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium flex items-center gap-2">
+                $EPSTEIN Token
+                <span className="text-[10px] px-1.5 py-0.5 bg-[#9945FF]/20 text-[#9945FF] rounded font-bold tracking-wider">
+                  LIVE
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground">Solana SPL Token</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium flex items-center gap-2">
-              $EPSTEIN Token
-              <span className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary rounded font-bold tracking-wider">
-                COMING SOON
-              </span>
-            </p>
-            <p className="text-xs text-muted-foreground">Solana SPL token — TBA</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-[10px] bg-background border border-border rounded px-2.5 py-1.5 text-muted-foreground truncate">
+              {CONTRACT_ADDRESS}
+            </code>
+            <button
+              onClick={copyAddress}
+              className="flex-shrink-0 p-1.5 border border-border rounded hover:border-primary/50 hover:bg-primary/5 transition-all"
+              title="Copy contract address"
+            >
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-green-500" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+              )}
+            </button>
           </div>
         </div>
       </div>

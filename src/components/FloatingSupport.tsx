@@ -2,11 +2,20 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Heart, X, ExternalLink, Coins } from "lucide-react";
+import { Heart, X, ExternalLink, Coins, Copy, Check } from "lucide-react";
+
+const CONTRACT_ADDRESS = "HTjWG7e27nHY5xamcUrG6pK4LybjGz2zscVC9BD5MS1o";
 
 export function FloatingSupport() {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const pathname = usePathname();
+
+  const copyAddress = () => {
+    navigator.clipboard.writeText(CONTRACT_ADDRESS);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // Hide on Ask page to avoid overlapping the input
   if (pathname === "/ask") return null;
@@ -36,10 +45,28 @@ export function FloatingSupport() {
               <span className="group-hover:text-primary transition-colors">Tip on Ko-fi</span>
               <ExternalLink className="w-2.5 h-2.5 opacity-50 ml-auto" />
             </a>
-            <div className="flex items-center gap-2 p-2.5 border border-border rounded-md bg-muted/30 text-xs">
-              <Coins className="w-3.5 h-3.5 text-[#9945FF]" />
-              <span>$EPSTEIN Token</span>
-              <span className="text-[9px] px-1 py-0.5 bg-primary/20 text-primary rounded font-bold ml-auto">TBA</span>
+            <div className="p-2.5 border border-border rounded-md bg-muted/30 text-xs">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Coins className="w-3.5 h-3.5 text-[#9945FF]" />
+                <span>$EPSTEIN Token</span>
+                <span className="text-[9px] px-1 py-0.5 bg-[#9945FF]/20 text-[#9945FF] rounded font-bold ml-auto">LIVE</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <code className="flex-1 text-[9px] bg-background border border-border rounded px-1.5 py-1 text-muted-foreground truncate">
+                  {CONTRACT_ADDRESS}
+                </code>
+                <button
+                  onClick={copyAddress}
+                  className="flex-shrink-0 p-1 border border-border rounded hover:border-primary/50 transition-all"
+                  title="Copy CA"
+                >
+                  {copied ? (
+                    <Check className="w-3 h-3 text-green-500" />
+                  ) : (
+                    <Copy className="w-3 h-3 text-muted-foreground" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
