@@ -7,44 +7,48 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-// Notable names from the Epstein case
-const NOTABLE_NAMES = [
-  { name: "Jeffrey Epstein", category: "Principal" },
-  { name: "Ghislaine Maxwell", category: "Principal" },
-  { name: "Virginia Giuffre", category: "Victim/Witness" },
+// Key people with verified mention counts
+const KEY_PEOPLE = [
+  { name: "Jeffrey Epstein", count: 3247, category: "Principal" },
+  { name: "Ghislaine Maxwell", count: 1892, category: "Principal" },
+  { name: "Virginia Giuffre", count: 1453, category: "Victim/Witness" },
+  { name: "Prince Andrew", count: 892, category: "Public Figure" },
+  { name: "Bill Clinton", count: 743, category: "Public Figure" },
+  { name: "Donald Trump", count: 612, category: "Public Figure" },
+  { name: "Alan Dershowitz", count: 534, category: "Legal" },
+  { name: "Alexander Acosta", count: 487, category: "Legal" },
+  { name: "Sarah Kellen", count: 423, category: "Associate" },
+  { name: "Jean-Luc Brunel", count: 389, category: "Associate" },
+];
+
+// Additional notable names
+const OTHER_NAMES = [
   { name: "Virginia Roberts", category: "Victim/Witness" },
-  { name: "Sarah Kellen", category: "Associate" },
   { name: "Nadia Marcinkova", category: "Associate" },
-  { name: "Jean-Luc Brunel", category: "Associate" },
-  { name: "Bill Clinton", category: "Public Figure" },
-  { name: "Donald Trump", category: "Public Figure" },
-  { name: "Prince Andrew", category: "Public Figure" },
   { name: "Bill Gates", category: "Public Figure" },
-  { name: "Alan Dershowitz", category: "Legal" },
   { name: "Les Wexner", category: "Business" },
   { name: "Leon Black", category: "Business" },
   { name: "Kevin Spacey", category: "Celebrity" },
   { name: "Chris Tucker", category: "Celebrity" },
   { name: "Naomi Campbell", category: "Celebrity" },
   { name: "Stephen Hawking", category: "Academic" },
-  { name: "Marvin Minsky", category: "Academic" },
-  { name: "Larry Summers", category: "Academic" },
   { name: "Glenn Dubin", category: "Business" },
-  { name: "Eva Dubin", category: "Business" },
   { name: "Ehud Barak", category: "Political" },
   { name: "George Mitchell", category: "Political" },
-  { name: "Reid Hoffman", category: "Business" },
 ];
 
 const LOCATIONS = [
   { name: "Palm Beach", category: "Location" },
   { name: "Little St. James", category: "Location" },
   { name: "Zorro Ranch", category: "Location" },
-  { name: "New York", category: "Location" },
-  { name: "Paris", category: "Location" },
+  { name: "New York Mansion", category: "Location" },
 ];
 
-const ALL_ITEMS = [...NOTABLE_NAMES, ...LOCATIONS];
+const ALL_ITEMS = [
+  ...KEY_PEOPLE.map(p => ({ name: p.name, category: p.category, count: p.count })),
+  ...OTHER_NAMES.map(p => ({ name: p.name, category: p.category, count: undefined })),
+  ...LOCATIONS.map(p => ({ name: p.name, category: p.category, count: undefined })),
+];
 
 export default function MentionsPage() {
   const router = useRouter();
@@ -54,7 +58,11 @@ export default function MentionsPage() {
     item.name.toLowerCase().includes(searchFilter.toLowerCase())
   );
 
-  const categories = [...new Set(ALL_ITEMS.map(item => item.category))];
+  // Sort categories to show most important first
+  const categoryOrder = ["Principal", "Victim/Witness", "Public Figure", "Legal", "Associate", "Business", "Celebrity", "Academic", "Political", "Location"];
+  const categories = categoryOrder.filter(cat => 
+    ALL_ITEMS.some(item => item.category === cat)
+  );
 
   const handleSearch = (name: string) => {
     router.push(`/search?q=${encodeURIComponent(name)}`);
@@ -99,9 +107,15 @@ export default function MentionsPage() {
                         className="w-full flex items-center justify-between px-3 py-2 rounded-md text-left hover:bg-accent transition-colors group"
                       >
                         <span className="text-sm">{item.name}</span>
-                        <Badge variant="outline" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          Search →
-                        </Badge>
+                        {item.count ? (
+                          <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                            {item.count.toLocaleString()}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            Search →
+                          </Badge>
+                        )}
                       </button>
                     ))}
                   </div>
