@@ -94,7 +94,7 @@ export function ChatInterface() {
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, something went wrong. Please try again.",
+          content: "The request timed out — the search may have taken too long. Try asking a more specific question (e.g., include a specific name or topic).",
         },
       ]);
     } finally {

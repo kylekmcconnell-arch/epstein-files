@@ -3,7 +3,7 @@ import { searchApify } from "@/lib/apify";
 import OpenAI from "openai";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // 5 minutes max
+export const maxDuration = 60; // 60 seconds max (Vercel Hobby limit)
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -123,10 +123,23 @@ ${context}`,
     });
   } catch (error: any) {
     console.error("Ask error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to process question" },
-      { status: 500 }
-    );
+    
+    // Provide more helpful error messages
+    let errorMessage = "Something went wrong processing your question. Please try again.";
+    
+    if (error?.message?.includes("timeout") || error?.message?.includes("TIMEOUT")) {
+      errorMessage = "The search took too long. Try a more specific question to get faster results.";
+    } else if (error?.message?.includes("API key") || error?.message?.includes("authentication") || error?.status === 401) {
+      errorMessage = "AI service configuration issue. Please try again later.";
+    } else if (error?.message?.includes("rate limit") || error?.status === 429) {
+      errorMessage = "Too many requests. Please wait a moment and try again.";
+    }
+    
+    return NextResponse.json({
+      question: "",
+      answer: errorMessage,
+      sources: [],
+    });
   }
 }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchApify, ApifyDocument } from "@/lib/apify";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // 5 minutes max for Apify runs
+export const maxDuration = 60; // 60 seconds max
 
 export async function POST(request: NextRequest) {
   try {
