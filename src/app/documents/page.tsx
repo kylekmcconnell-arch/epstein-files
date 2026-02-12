@@ -7,75 +7,75 @@ import { ExternalLink, FileText, FolderOpen } from "lucide-react";
 // Official DOJ data sets
 const DATA_SETS = [
   {
-    name: "DataSet 1",
+    name: "Data Set 1",
     description: "Initial document release",
-    url: "https://www.justice.gov/epstein/files/DataSet%201",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-1-files",
     count: "6,300+",
   },
   {
-    name: "DataSet 2",
+    name: "Data Set 2",
     description: "Second batch of documents",
-    url: "https://www.justice.gov/epstein/files/DataSet%202",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-2-files",
     count: "574+",
   },
   {
-    name: "DataSet 3",
+    name: "Data Set 3",
     description: "Third document release",
-    url: "https://www.justice.gov/epstein/files/DataSet%203",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-3-files",
     count: "67+",
   },
   {
-    name: "DataSet 4",
+    name: "Data Set 4",
     description: "Fourth document batch",
-    url: "https://www.justice.gov/epstein/files/DataSet%204",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-4-files",
     count: "152+",
   },
   {
-    name: "DataSet 5",
+    name: "Data Set 5",
     description: "Fifth document release",
-    url: "https://www.justice.gov/epstein/files/DataSet%205",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-5-files",
     count: "120+",
   },
   {
-    name: "DataSet 6",
+    name: "Data Set 6",
     description: "Sixth document batch",
-    url: "https://www.justice.gov/epstein/files/DataSet%206",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-6-files",
     count: "13+",
   },
   {
-    name: "DataSet 7",
+    name: "Data Set 7",
     description: "Seventh document release",
-    url: "https://www.justice.gov/epstein/files/DataSet%207",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-7-files",
     count: "17+",
   },
   {
-    name: "DataSet 8",
+    name: "Data Set 8",
     description: "Eighth document batch",
-    url: "https://www.justice.gov/epstein/files/DataSet%208",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-8-files",
     count: "10,500+",
   },
   {
-    name: "DataSet 9",
+    name: "Data Set 9",
     description: "Ninth document release",
-    url: "https://www.justice.gov/epstein/files/DataSet%209",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-9-files",
     count: "~100,000+",
   },
   {
-    name: "DataSet 10",
+    name: "Data Set 10",
     description: "Tenth document batch (VOL00010)",
-    url: "https://www.justice.gov/epstein/files/DataSet%2010",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-10-files",
     count: "500,000+",
   },
   {
-    name: "DataSet 11",
+    name: "Data Set 11",
     description: "Eleventh document release (VOL00011)",
-    url: "https://www.justice.gov/epstein/files/DataSet%2011",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-11-files",
     count: "330,000+",
   },
   {
-    name: "DataSet 12",
+    name: "Data Set 12",
     description: "Twelfth document batch (VOL00012)",
-    url: "https://www.justice.gov/epstein/files/DataSet%2012",
+    url: "https://www.justice.gov/epstein/doj-disclosures/data-set-12-files",
     count: "152+",
   },
 ];
@@ -141,7 +141,7 @@ export default function DocumentsPage() {
 
       <div className="mt-8 text-center">
         <a
-          href="https://www.justice.gov/epstein"
+          href="https://www.justice.gov/epstein/doj-disclosures"
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm text-primary hover:underline inline-flex items-center gap-1"
