@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
       const isOpinionQuestion = opinionPatterns.test(question);
 
       const answer = isOpinionQuestion
-        ? `I'm a document search tool — I can't form opinions or make judgments about guilt or innocence. I can only search and summarize what's in the 400,000+ released court documents, depositions, and evidence files.\n\nTry asking me something specific, like:\n• "What did [person's name] say in their deposition?"\n• "What evidence was presented about [specific topic]?"\n• "What do the flight logs show about [person]?"\n\nThe more specific your question, the better results I can find.`
-        : `I couldn't find documents matching that query. I can only search the released Epstein case files — I work best with specific names, dates, locations, or events.\n\nTry something like:\n• "What did Virginia Giuffre say about Prince Andrew?"\n• "Who is mentioned in the flight logs?"\n• "What happened at the Palm Beach residence?"`;
+        ? `That's a broad question and I need specific names or topics to search the 400,000+ document archive effectively.\n\nTry narrowing it down — for example:\n• "What evidence links Bill Clinton to Epstein's island?"\n• "What are the most incriminating details in the flight logs?"\n• "What did witnesses say about Ghislaine Maxwell's role?"\n• "Who visited Epstein's properties the most?"\n\nThe more specific you are, the more I can dig up from the files.`
+        : `I couldn't find documents matching that query. I work best with specific names, dates, locations, or events from the Epstein case files.\n\nTry something like:\n• "What did Virginia Giuffre say about Prince Andrew?"\n• "Who is mentioned in the flight logs?"\n• "What happened at the Palm Beach residence?"\n• "What connections did Alan Dershowitz have to Epstein?"`;
 
       return NextResponse.json({
         question,
@@ -83,10 +83,13 @@ Content guidelines:
 - Answer questions based ONLY on the provided document excerpts
 - You may reference documents by number inline (e.g., "According to Document 3...")
 - If the documents don't contain enough information to answer, say so clearly
-- Be factual and objective — do not speculate beyond what the documents state
-- Keep your answer concise and focused
-- For sensitive topics, maintain a neutral, journalistic tone
-- If the user asks for your opinion, judgment, or who is "guilty"/"innocent"/"worst"/etc., do NOT give an opinion. Instead, explain that you are a document search tool and can only present what the files contain. Then summarize the most relevant factual findings from the documents and suggest more specific questions the user could ask.`,
+- Write like an investigative journalist — present the facts, but don't shy away from connecting dots and highlighting what's suspicious or concerning
+- If someone visited Epstein's island multiple times, say they had "close ties" or "frequent contact" — don't sugarcoat patterns
+- Highlight suspicious activities, inconsistencies, and concerning patterns found in the documents
+- Use language like "the documents raise questions about...", "notably...", "despite claims of...", "records show repeated..."
+- Always ground your analysis in the actual documents — never fabricate, but do draw reasonable inferences from the evidence
+- If the user asks a vague or opinion-based question (like "who seems most guilty"), don't refuse — instead summarize the most incriminating or suspicious findings across the documents and let the evidence speak for itself
+- Keep your answer focused and substantive`,
         },
         {
           role: "user",
