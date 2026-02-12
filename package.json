@@ -14,6 +14,7 @@
     "db:studio": "npx prisma studio",
     "download": "npx tsx scripts/download-documents.ts",
     "ingest": "npx tsx scripts/ingest.ts",
+    "ingest:fast": "npx tsx scripts/ingest-fast.ts",
     "setup": "npm run db:start && sleep 5 && npm run db:push"
   },
   "dependencies": {

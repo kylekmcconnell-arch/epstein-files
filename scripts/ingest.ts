@@ -35,8 +35,8 @@ const FOLDER_PATTERNS = [
 // OCR Settings - IMPROVED
 const OCR_DPI = 300;            // Higher resolution for better accuracy (was 150)
 const PARALLEL_WORKERS = 3;     // Reduced for OCR quality
-const MIN_TEXT_LENGTH = 100;    // Minimum text to consider valid
-const MIN_WORD_RATIO = 0.3;     // At least 30% should be real words
+const MIN_TEXT_LENGTH = 50;     // Minimum text to consider valid (lowered from 100)
+const MIN_WORD_RATIO = 0.2;     // At least 20% should be real words (lowered from 30%)
 const CHUNK_SIZE = 500;
 const CHUNK_OVERLAP = 50;
 const EMBEDDING_BATCH_SIZE = 20;
@@ -102,7 +102,7 @@ function isReadableText(text: string): boolean {
   
   // Split into words
   const words = text.toLowerCase().match(/[a-z]{2,}/g) || [];
-  if (words.length < 10) return false;
+  if (words.length < 5) return false;  // Lowered from 10
   
   // Check ratio of common words
   const commonCount = words.filter(w => COMMON_WORDS.has(w)).length;
@@ -112,7 +112,7 @@ function isReadableText(text: string): boolean {
   const alphaNumeric = text.match(/[a-zA-Z0-9]/g) || [];
   const alphaRatio = alphaNumeric.length / text.length;
   
-  return ratio >= MIN_WORD_RATIO && alphaRatio >= 0.5;
+  return ratio >= MIN_WORD_RATIO && alphaRatio >= 0.4;  // Lowered from 0.5
 }
 
 // Convert PDF to image using pdftoppm with higher DPI
@@ -171,14 +171,17 @@ function findDocumentFolders(): string[] {
 
 function findPDFs(folderPath: string): string[] {
   const pdfs: string[] = [];
+  const dirsToScan: string[] = [folderPath];
   
-  function scanDir(dir: string) {
+  // Iterative instead of recursive to avoid stack overflow
+  while (dirsToScan.length > 0) {
+    const dir = dirsToScan.pop()!;
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-          scanDir(fullPath);
+          dirsToScan.push(fullPath);
         } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".pdf")) {
           pdfs.push(fullPath);
         }
@@ -186,7 +189,6 @@ function findPDFs(folderPath: string): string[] {
     } catch (err) {}
   }
   
-  scanDir(folderPath);
   return pdfs;
 }
 
@@ -260,6 +262,9 @@ async function processDocument(filepath: string, stats: ProcessingStats): Promis
   const filename = path.basename(filepath);
   const filePrefix = filename.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 50);
   
+  // Show we're working on this file
+  process.stdout.write(`  ${filename.slice(0, 40).padEnd(40)} `);
+  
   try {
     const dataBuffer = fs.readFileSync(filepath);
     let text = "";
@@ -288,10 +293,12 @@ async function processDocument(filepath: string, stats: ProcessingStats): Promis
           stats.ocrUsed++;
         } else {
           stats.ocrFailed++;
-          return false; // Skip unreadable documents
+          console.log("✗ unreadable (OCR failed quality check)");
+          return false;
         }
       } else {
         stats.ocrFailed++;
+        console.log("✗ OCR conversion failed");
         return false;
       }
     }
@@ -299,6 +306,7 @@ async function processDocument(filepath: string, stats: ProcessingStats): Promis
     // Final quality check
     if (!isReadableText(text)) {
       stats.documentsSkipped++;
+      console.log("✗ skipped (not readable)");
       return false;
     }
     
@@ -353,11 +361,12 @@ async function processDocument(filepath: string, stats: ProcessingStats): Promis
     }
     
     stats.documentsProcessed++;
-    console.log(`  ✓ ${filename} (${text.length} chars${usedOCR ? ", OCR" : ""})`);
+    console.log(`✓ ${text.length} chars${usedOCR ? " (OCR)" : ""}`);
     return true;
     
-  } catch (error) {
+  } catch (error: any) {
     cleanupTempFiles(filePrefix);
+    console.log(`✗ error: ${error.message?.slice(0, 50) || "unknown"}`);
     return false;
   }
 }
@@ -422,25 +431,36 @@ async function main() {
   console.log("\nProcessing...\n");
   
   // Process each folder
+  let totalAttempted = 0;
+  
   for (const folder of folders) {
     console.log(`\n📁 ${path.basename(folder)}`);
     const pdfs = findPDFs(folder);
+    let folderSkipped = 0;
     
     for (const pdfPath of pdfs) {
       const filename = path.basename(pdfPath);
       
       // Skip if already processed
-      if (processedFilenames.has(filename)) continue;
+      if (processedFilenames.has(filename)) {
+        folderSkipped++;
+        continue;
+      }
       
+      totalAttempted++;
       await processDocument(pdfPath, stats);
       processedFilenames.add(filename);
       
-      // Progress update
-      if (stats.documentsProcessed > 0 && stats.documentsProcessed % PROGRESS_INTERVAL === 0) {
+      // Progress update every 10 attempts
+      if (totalAttempted % 10 === 0) {
         const elapsed = (Date.now() - stats.startTime) / 1000;
-        const rate = stats.documentsProcessed / elapsed;
-        console.log(`\n--- Progress: ${stats.documentsProcessed} docs | ${rate.toFixed(1)}/sec | OCR: ${stats.ocrUsed} | Failed: ${stats.ocrFailed} ---\n`);
+        const successRate = stats.documentsProcessed / totalAttempted * 100;
+        console.log(`\n  [${totalAttempted} tried | ${stats.documentsProcessed} saved | ${successRate.toFixed(0)}% success | ${formatTime(elapsed)} elapsed]\n`);
       }
+    }
+    
+    if (folderSkipped > 0) {
+      console.log(`  (${folderSkipped} already in database)`);
     }
   }
   

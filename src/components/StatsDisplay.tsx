@@ -1,59 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
-interface Stats {
-  documents: number;
-  chunks: number;
-  mentions: number;
-  topMentions: { name: string; count: number }[];
-}
+// Static stats - using Apify's database
+const NOTABLE_NAMES = [
+  "Jeffrey Epstein",
+  "Ghislaine Maxwell",
+  "Bill Clinton",
+  "Donald Trump",
+  "Prince Andrew",
+  "Bill Gates",
+  "Alan Dershowitz",
+  "Les Wexner",
+  "Kevin Spacey",
+  "Virginia Giuffre",
+];
 
 export function StatsDisplay() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/stats")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) {
-          setError(true);
-        } else {
-          setStats(data);
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        setError(true);
-        setLoading(false);
-      });
-  }, []);
-
   return (
     <>
       {/* Stats Section */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
         <div className="bg-card border border-border rounded-lg p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Documents</p>
-          <p className="text-3xl font-bold text-foreground">
-            {loading ? "..." : error ? "—" : stats?.documents?.toLocaleString() || "0"}
-          </p>
+          <p className="text-3xl font-bold text-foreground">400,000+</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Indexed Chunks</p>
-          <p className="text-3xl font-bold text-foreground">
-            {loading ? "..." : error ? "—" : stats?.chunks?.toLocaleString() || "0"}
-          </p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Data Sets</p>
+          <p className="text-3xl font-bold text-foreground">12</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Name Mentions</p>
-          <p className="text-3xl font-bold text-foreground">
-            {loading ? "..." : error ? "—" : stats?.mentions?.toLocaleString() || "0"}
-          </p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Pages</p>
+          <p className="text-3xl font-bold text-foreground">3.5M+</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Status</p>
@@ -61,29 +40,27 @@ export function StatsDisplay() {
         </div>
       </div>
 
-      {/* Top Mentions */}
-      {!error && stats?.topMentions && stats.topMentions.length > 0 && (
-        <div className="mb-10">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-4">
-            Most Referenced Names
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {stats.topMentions.map((mention) => (
-              <Link
-                key={mention.name}
-                href={`/mentions?name=${encodeURIComponent(mention.name)}`}
+      {/* Search suggestions */}
+      <div className="mb-10">
+        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-4">
+          Popular Searches
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {NOTABLE_NAMES.map((name) => (
+            <Link
+              key={name}
+              href={`/search?q=${encodeURIComponent(name)}`}
+            >
+              <Badge
+                variant="secondary"
+                className="text-sm py-1.5 px-4 cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
               >
-                <Badge
-                  variant="secondary"
-                  className="text-sm py-1.5 px-4 cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                >
-                  {mention.name} <span className="text-muted-foreground ml-1">({mention.count})</span>
-                </Badge>
-              </Link>
-            ))}
-          </div>
+                {name}
+              </Badge>
+            </Link>
+          ))}
         </div>
-      )}
+      </div>
     </>
   );
 }
