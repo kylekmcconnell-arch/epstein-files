@@ -192,12 +192,10 @@ export function ChatInterface() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-card border border-border rounded-lg p-4 max-w-full">
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
-                      {stripSourcesFromAnswer(message.content)}
-                    </p>
-                    {/* Share buttons */}
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
+                  <div className="bg-card border border-border rounded-lg max-w-full">
+                    {/* Share buttons - top bar */}
+                    <div className="flex items-center gap-1 px-4 pt-3 pb-2 border-b border-border/50">
+                      <span className="text-[10px] text-muted-foreground mr-auto tracking-wide">AI RESPONSE</span>
                       <button
                         onClick={() => {
                           const prevUser = messages.slice(0, index).reverse().find(m => m.role === "user");
@@ -215,7 +213,7 @@ export function ChatInterface() {
                         title="Share on X"
                       >
                         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                        Share on X
+                        Share
                       </button>
                       <button
                         onClick={() => {
@@ -233,6 +231,11 @@ export function ChatInterface() {
                         <Share2 className="w-3.5 h-3.5" />
                         {copiedIndex === index ? "Copied!" : "Copy"}
                       </button>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
+                        {stripSourcesFromAnswer(message.content)}
+                      </p>
                     </div>
                   </div>
                 )}
