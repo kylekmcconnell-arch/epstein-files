@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 
 // Key people with mention counts from Epstein files
@@ -18,6 +19,14 @@ const KEY_PEOPLE = [
 ];
 
 export function StatsDisplay() {
+  const router = useRouter();
+
+  const handlePersonClick = (name: string) => {
+    const question = `Where and how is ${name} mentioned in the Epstein files?`;
+    sessionStorage.setItem("pendingQuestion", question);
+    router.push("/ask");
+  };
+
   return (
     <>
       {/* Stats Section */}
@@ -47,10 +56,10 @@ export function StatsDisplay() {
         </p>
         <div className="space-y-2">
           {KEY_PEOPLE.map((person) => (
-            <Link
+            <button
               key={person.name}
-              href={`/search?q=${encodeURIComponent(person.name)}`}
-              className="flex items-center justify-between p-2 rounded hover:bg-accent transition-colors group"
+              onClick={() => handlePersonClick(person.name)}
+              className="w-full flex items-center justify-between p-2 rounded hover:bg-accent transition-colors group text-left"
             >
               <span className="text-sm">{person.name}</span>
               <div className="flex items-center gap-2">
@@ -65,7 +74,7 @@ export function StatsDisplay() {
                   {person.count.toLocaleString()}
                 </Badge>
               </div>
-            </Link>
+            </button>
           ))}
         </div>
         <Link 
