@@ -2,7 +2,7 @@
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, AlertTriangle } from "lucide-react";
+import { FileText, AlertTriangle, Share2, Twitter } from "lucide-react";
 
 interface Source {
   filename: string;
@@ -31,6 +31,7 @@ export function ChatInterface() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeSources, setActiveSources] = useState<Source[]>([]);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
 
@@ -195,6 +196,44 @@ export function ChatInterface() {
                     <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
                       {stripSourcesFromAnswer(message.content)}
                     </p>
+                    {/* Share buttons */}
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
+                      <button
+                        onClick={() => {
+                          const prevUser = messages.slice(0, index).reverse().find(m => m.role === "user");
+                          const question = prevUser?.content || "";
+                          const answer = stripSourcesFromAnswer(message.content);
+                          const snippet = answer.length > 200 ? answer.slice(0, 200) + "..." : answer;
+                          const text = `Q: ${question}\n\nA: ${snippet}\n\nSearch the Epstein files with AI 👉 ai-epstein.com`;
+                          window.open(
+                            `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
+                            "_blank",
+                            "width=550,height=420"
+                          );
+                        }}
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-secondary/50"
+                        title="Share on X"
+                      >
+                        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        Share on X
+                      </button>
+                      <button
+                        onClick={() => {
+                          const prevUser = messages.slice(0, index).reverse().find(m => m.role === "user");
+                          const question = prevUser?.content || "";
+                          const answer = stripSourcesFromAnswer(message.content);
+                          const text = `Q: ${question}\n\nA: ${answer}\n\n— ai-epstein.com`;
+                          navigator.clipboard.writeText(text);
+                          setCopiedIndex(index);
+                          setTimeout(() => setCopiedIndex(null), 2000);
+                        }}
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-secondary/50"
+                        title="Copy answer"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        {copiedIndex === index ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
