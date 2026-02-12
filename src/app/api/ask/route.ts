@@ -67,9 +67,11 @@ You have access to excerpts from official court documents, depositions, and evid
 
 Guidelines:
 - Answer questions based ONLY on the provided document excerpts
-- Always cite which document(s) your information comes from (e.g., "According to Document 3...")
-- If the documents don't contain enough information to answer, say so
+- Reference documents by number in your answer (e.g., "Document 3 mentions...")
+- DO NOT include a separate "Sources" list at the end - the UI handles source citations separately
+- If the documents don't contain enough information to answer, say so clearly
 - Be factual and objective - do not speculate beyond what the documents state
+- Keep your answer concise and focused
 - For sensitive topics, maintain a neutral, journalistic tone`,
         },
         {
