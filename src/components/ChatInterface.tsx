@@ -2,7 +2,7 @@
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText } from "lucide-react";
+import { FileText, AlertTriangle } from "lucide-react";
 
 interface Source {
   filename: string;
@@ -240,6 +240,16 @@ export function ChatInterface() {
                   </div>
                 </a>
               ))}
+              {activeSources.length >= 20 && (
+                <div className="flex items-start gap-2 p-3 border border-primary/20 bg-primary/5 rounded-lg">
+                  <AlertTriangle className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Showing top {activeSources.length} citations. This query likely matches many more documents across the archive. Try the{" "}
+                    <a href="/search" className="text-primary hover:underline">Search page</a>{" "}
+                    for full results.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

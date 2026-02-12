@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { SearchBar } from "@/components/SearchBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, FileText, Clock } from "lucide-react";
+import { ExternalLink, FileText, Clock, AlertTriangle, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ApifyResult {
   filename: string;
@@ -22,51 +23,84 @@ function cleanText(text: string): string {
     .trim();
 }
 
+const RESULTS_PER_PAGE = 100;
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
   const [results, setResults] = useState<ApifyResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTime, setSearchTime] = useState<number | null>(null);
+  const [totalRawResults, setTotalRawResults] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [currentMaxResults, setCurrentMaxResults] = useState(RESULTS_PER_PAGE);
+
+  const doSearch = useCallback(async (maxResults: number, append: boolean = false) => {
+    if (!query) {
+      setResults([]);
+      setError(null);
+      return;
+    }
+
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setResults([]);
+    }
+    setError(null);
+    const startTime = Date.now();
+    
+    try {
+      const res = await fetch("/api/apify-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, maxResults }),
+      });
+      const data = await res.json();
+      
+      if (data.error) {
+        setError(data.error);
+        if (!append) setResults([]);
+      } else {
+        const docs = data.documents || [];
+        if (append) {
+          // Merge new results, dedup by filename
+          setResults(prev => {
+            const existing = new Set(prev.map(r => r.filename));
+            const newDocs = docs.filter((d: ApifyResult) => !existing.has(d.filename));
+            return [...prev, ...newDocs];
+          });
+        } else {
+          setResults(docs);
+        }
+        setTotalRawResults(data.totalResults || 0);
+        // If we got back as many raw results as requested, there are likely more
+        setHasMore((data.totalResults || 0) >= maxResults);
+        setSearchTime((Date.now() - startTime) / 1000);
+        setCurrentMaxResults(maxResults);
+      }
+    } catch (err) {
+      console.error("Search failed:", err);
+      setError("Search failed. Please try again.");
+      if (!append) setResults([]);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [query]);
 
   useEffect(() => {
-    async function search() {
-      if (!query) {
-        setResults([]);
-        setError(null);
-        return;
-      }
+    setCurrentMaxResults(RESULTS_PER_PAGE);
+    doSearch(RESULTS_PER_PAGE);
+  }, [query, doSearch]);
 
-      setLoading(true);
-      setError(null);
-      const startTime = Date.now();
-      
-      try {
-        const res = await fetch("/api/apify-search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, maxResults: 100 }),
-        });
-        const data = await res.json();
-        
-        if (data.error) {
-          setError(data.error);
-          setResults([]);
-        } else {
-          setResults(data.documents || []);
-          setSearchTime((Date.now() - startTime) / 1000);
-        }
-      } catch (err) {
-        console.error("Search failed:", err);
-        setError("Search failed. Please try again.");
-        setResults([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    search();
-  }, [query]);
+  const loadMore = () => {
+    const nextMax = currentMaxResults + RESULTS_PER_PAGE;
+    doSearch(nextMax, true);
+  };
 
   return (
     <div className="max-w-4xl mx-auto font-mono">
@@ -78,7 +112,7 @@ function SearchContent() {
       <SearchBar defaultValue={query} className="mb-6" />
 
       {query && !loading && !error && (
-        <div className="flex items-center gap-4 mb-6 text-sm text-muted-foreground">
+        <div className="flex items-center gap-4 mb-4 text-sm text-muted-foreground">
           <span>{results.length} documents found</span>
           {searchTime && (
             <span className="flex items-center gap-1">
@@ -86,6 +120,19 @@ function SearchContent() {
               {searchTime.toFixed(1)}s
             </span>
           )}
+        </div>
+      )}
+
+      {/* Disclaimer when results are capped */}
+      {query && !loading && !error && hasMore && results.length > 0 && (
+        <div className="flex items-start gap-3 mb-6 p-3 border border-primary/30 bg-primary/5 rounded-lg text-xs text-muted-foreground">
+          <AlertTriangle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+          <div>
+            <p>
+              <span className="text-primary font-medium">Showing {results.length} documents</span> — this query likely matches thousands more across the 400,000+ file archive. 
+              Results are ranked by relevance. Try more specific keywords to narrow results, or load more below.
+            </p>
+          </div>
         </div>
       )}
 
@@ -161,6 +208,33 @@ function SearchContent() {
               </div>
             );
           })}
+
+          {/* Load More button */}
+          {hasMore && (
+            <div className="text-center py-6">
+              <Button
+                onClick={loadMore}
+                disabled={loadingMore}
+                variant="outline"
+                className="gap-2"
+              >
+                {loadingMore ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    Loading more results...
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    Load More Results
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Currently showing {results.length} documents — more may be available
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
