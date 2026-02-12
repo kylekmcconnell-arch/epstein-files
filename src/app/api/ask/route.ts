@@ -112,12 +112,14 @@ ${context}`,
  * Extract key search terms from a natural language question
  */
 function extractSearchTerms(question: string): string[] {
+  // Only filter out very common question words, keep meaningful terms
   const stopWords = new Set([
     "what", "where", "when", "who", "why", "how", "is", "are", "was", "were",
     "did", "does", "do", "the", "a", "an", "in", "on", "at", "to", "for",
     "of", "with", "about", "can", "you", "tell", "me", "find", "show",
     "mentioned", "mention", "appears", "appear", "documents", "files",
-    "ever", "any", "visit", "visited", "island", "there", "been", "have", "has",
+    "ever", "any", "there", "been", "have", "has", "and", "or", "but",
+    "this", "that", "these", "those", "from", "into", "which", "their",
   ]);
 
   // First, try to find proper names (consecutive capitalized words)
@@ -128,24 +130,25 @@ function extractSearchTerms(question: string): string[] {
     properNames.push(match[1].toLowerCase());
   }
 
-  // Also check for known notable names
-  const notableNames = [
+  // Check for known notable names and locations
+  const notableTerms = [
     "bill gates", "donald trump", "bill clinton", "hillary clinton",
     "prince andrew", "alan dershowitz", "ghislaine maxwell", "les wexner",
     "stephen hawking", "elon musk", "kevin spacey", "chris tucker",
     "virginia giuffre", "virginia roberts", "jeffrey epstein",
-    "howard lutnik", "howard lutnick", // Add both spellings
+    "howard lutnik", "howard lutnick",
     "palm beach", "little st. james", "zorro ranch", "flight logs",
+    "island", "plane", "lolita express", "mansion", "ranch",
   ];
 
   const questionLower = question.toLowerCase();
-  const foundNotable = notableNames.filter(name => questionLower.includes(name));
+  const foundTerms = notableTerms.filter(term => questionLower.includes(term));
 
-  // Combine proper names found in question with notable names
-  const allNames = [...new Set([...properNames, ...foundNotable])];
+  // Combine proper names found in question with notable terms
+  const allTerms = [...new Set([...properNames, ...foundTerms])];
   
-  if (allNames.length > 0) {
-    return allNames;
+  if (allTerms.length > 0) {
+    return allTerms;
   }
 
   // Fallback: extract non-stop words
@@ -154,6 +157,12 @@ function extractSearchTerms(question: string): string[] {
     .split(/\s+/)
     .filter(word => word.length > 2 && !stopWords.has(word));
 
-  // Return meaningful keywords
-  return words.slice(0, 3);
+  // Always return at least one term
+  if (words.length === 0) {
+    // Last resort: use a generic search term from the question
+    return ["epstein"];
+  }
+
+  // Return meaningful keywords (combine into a phrase for better results)
+  return [words.slice(0, 3).join(" ")];
 }
