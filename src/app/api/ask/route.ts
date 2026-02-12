@@ -43,9 +43,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (!results || results.length === 0) {
+      // Check if the question seems like an opinion/subjective question
+      const opinionPatterns = /\b(guilty|innocent|worst|best|think|opinion|feel|believe|most evil|bad person|good person|blame|fault|responsible)\b/i;
+      const isOpinionQuestion = opinionPatterns.test(question);
+
+      const answer = isOpinionQuestion
+        ? `I'm a document search tool — I can't form opinions or make judgments about guilt or innocence. I can only search and summarize what's in the 400,000+ released court documents, depositions, and evidence files.\n\nTry asking me something specific, like:\n• "What did [person's name] say in their deposition?"\n• "What evidence was presented about [specific topic]?"\n• "What do the flight logs show about [person]?"\n\nThe more specific your question, the better results I can find.`
+        : `I couldn't find documents matching that query. I can only search the released Epstein case files — I work best with specific names, dates, locations, or events.\n\nTry something like:\n• "What did Virginia Giuffre say about Prince Andrew?"\n• "Who is mentioned in the flight logs?"\n• "What happened at the Palm Beach residence?"`;
+
       return NextResponse.json({
         question,
-        answer: "I couldn't find any relevant documents matching your question. Try rephrasing or using different keywords.",
+        answer,
         sources: [],
       });
     }
@@ -77,7 +85,8 @@ Content guidelines:
 - If the documents don't contain enough information to answer, say so clearly
 - Be factual and objective — do not speculate beyond what the documents state
 - Keep your answer concise and focused
-- For sensitive topics, maintain a neutral, journalistic tone`,
+- For sensitive topics, maintain a neutral, journalistic tone
+- If the user asks for your opinion, judgment, or who is "guilty"/"innocent"/"worst"/etc., do NOT give an opinion. Instead, explain that you are a document search tool and can only present what the files contain. Then summarize the most relevant factual findings from the documents and suggest more specific questions the user could ask.`,
         },
         {
           role: "user",
