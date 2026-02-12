@@ -17,6 +17,15 @@ interface Message {
   sources?: Source[];
 }
 
+// Strip any "Sources" / "References" section that GPT may sneak into its answer
+function stripSourcesFromAnswer(text: string): string {
+  return text
+    .replace(/\n\n(?:\*\*)?(?:Sources|References|Documents? cited|Citations?|Relevant documents?)(?:\*\*)?:?\s*\n[\s\S]*$/i, '')
+    .replace(/\n\n(?:Sources|References|Citations?):?\s*(?:\n[-•*]\s*.+)+$/i, '')
+    .replace(/\n\nSources:\s*$/i, '')
+    .trim();
+}
+
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -184,7 +193,7 @@ export function ChatInterface() {
                 ) : (
                   <div className="bg-card border border-border rounded-lg p-4 max-w-full">
                     <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
-                      {message.content}
+                      {stripSourcesFromAnswer(message.content)}
                     </p>
                   </div>
                 )}
