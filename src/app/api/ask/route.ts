@@ -112,36 +112,48 @@ ${context}`,
  * Extract key search terms from a natural language question
  */
 function extractSearchTerms(question: string): string[] {
-  // Remove common question words and extract key terms
   const stopWords = new Set([
     "what", "where", "when", "who", "why", "how", "is", "are", "was", "were",
     "did", "does", "do", "the", "a", "an", "in", "on", "at", "to", "for",
     "of", "with", "about", "can", "you", "tell", "me", "find", "show",
     "mentioned", "mention", "appears", "appear", "documents", "files",
+    "ever", "any", "visit", "visited", "island", "there", "been", "have", "has",
   ]);
 
-  const words = question.toLowerCase()
-    .replace(/[?.,!]/g, "")
-    .split(/\s+/)
-    .filter(word => word.length > 2 && !stopWords.has(word));
+  // First, try to find proper names (consecutive capitalized words)
+  const properNamePattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b/g;
+  const properNames: string[] = [];
+  let match;
+  while ((match = properNamePattern.exec(question)) !== null) {
+    properNames.push(match[1].toLowerCase());
+  }
 
-  // Look for known notable names in the question
+  // Also check for known notable names
   const notableNames = [
     "bill gates", "donald trump", "bill clinton", "hillary clinton",
     "prince andrew", "alan dershowitz", "ghislaine maxwell", "les wexner",
     "stephen hawking", "elon musk", "kevin spacey", "chris tucker",
     "virginia giuffre", "virginia roberts", "jeffrey epstein",
+    "howard lutnik", "howard lutnick", // Add both spellings
     "palm beach", "little st. james", "zorro ranch", "flight logs",
   ];
 
   const questionLower = question.toLowerCase();
-  const foundNames = notableNames.filter(name => questionLower.includes(name));
+  const foundNotable = notableNames.filter(name => questionLower.includes(name));
 
-  // If we found notable names, use those as primary search terms
-  if (foundNames.length > 0) {
-    return foundNames;
+  // Combine proper names found in question with notable names
+  const allNames = [...new Set([...properNames, ...foundNotable])];
+  
+  if (allNames.length > 0) {
+    return allNames;
   }
 
-  // Otherwise, use extracted keywords (take top 3)
+  // Fallback: extract non-stop words
+  const words = question.toLowerCase()
+    .replace(/[?.,!']/g, "")
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !stopWords.has(word));
+
+  // Return meaningful keywords
   return words.slice(0, 3);
 }
