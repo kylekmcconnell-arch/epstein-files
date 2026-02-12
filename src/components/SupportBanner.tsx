@@ -53,7 +53,7 @@ export function SupportBanner() {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium flex items-center gap-2">
-                $EPSTEIN Token
+                $AISTEIN Token
                 <span className="text-[10px] px-1.5 py-0.5 bg-[#9945FF]/20 text-[#9945FF] rounded font-bold tracking-wider">
                   LIVE
                 </span>

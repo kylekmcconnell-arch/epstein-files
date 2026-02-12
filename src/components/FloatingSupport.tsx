@@ -48,7 +48,7 @@ export function FloatingSupport() {
             <div className="p-2.5 border border-border rounded-md bg-muted/30 text-xs">
               <div className="flex items-center gap-2 mb-1.5">
                 <Coins className="w-3.5 h-3.5 text-[#9945FF]" />
-                <span>$EPSTEIN Token</span>
+                <span>$AISTEIN Token</span>
                 <span className="text-[9px] px-1 py-0.5 bg-[#9945FF]/20 text-[#9945FF] rounded font-bold ml-auto">LIVE</span>
               </div>
               <div className="flex items-center gap-1.5">
