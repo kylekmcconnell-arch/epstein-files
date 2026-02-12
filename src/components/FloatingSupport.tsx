@@ -51,6 +51,14 @@ export function FloatingSupport() {
                 <span>$AISTEIN Token</span>
                 <span className="text-[9px] px-1 py-0.5 bg-[#9945FF]/20 text-[#9945FF] rounded font-bold ml-auto">LIVE</span>
               </div>
+              <a
+                href="https://dexscreener.com/solana/891jkj3cf14ccwolllabb9gncttw9mnt48adgvc4jddz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[9px] text-[#9945FF] hover:underline mb-1.5"
+              >
+                DexScreener <ExternalLink className="w-2.5 h-2.5" />
+              </a>
               <div className="flex items-center gap-1.5">
                 <code className="flex-1 text-[9px] bg-background border border-border rounded px-1.5 py-1 text-muted-foreground truncate">
                   {CONTRACT_ADDRESS}

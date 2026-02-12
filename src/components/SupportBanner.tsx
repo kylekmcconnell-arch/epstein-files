@@ -61,6 +61,14 @@ export function SupportBanner() {
               <p className="text-xs text-muted-foreground">Solana SPL Token</p>
             </div>
           </div>
+          <a
+            href="https://dexscreener.com/solana/891jkj3cf14ccwolllabb9gncttw9mnt48adgvc4jddz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-[11px] text-[#9945FF] hover:underline mb-3"
+          >
+            View on DexScreener <ExternalLink className="w-3 h-3" />
+          </a>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-[10px] bg-background border border-border rounded px-2.5 py-1.5 text-muted-foreground truncate">
               {CONTRACT_ADDRESS}
