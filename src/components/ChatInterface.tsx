@@ -2,8 +2,6 @@
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileText } from "lucide-react";
 
 interface Source {
@@ -24,7 +22,7 @@ export function ChatInterface() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeSources, setActiveSources] = useState<Source[]>([]);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
 
   // Check for pending question from homepage
@@ -35,16 +33,12 @@ export function ChatInterface() {
     const pendingQuestion = sessionStorage.getItem("pendingQuestion");
     if (pendingQuestion) {
       sessionStorage.removeItem("pendingQuestion");
-      // Auto-submit the question
       submitQuestion(pendingQuestion);
     }
   }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-    // Update active sources to show the latest assistant message's sources
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     const lastAssistant = [...messages].reverse().find(m => m.role === "assistant" && m.sources);
     if (lastAssistant?.sources) {
       setActiveSources(lastAssistant.sources);
@@ -109,8 +103,8 @@ export function ChatInterface() {
   // Empty state
   if (messages.length === 0 && !isLoading) {
     return (
-      <div className="flex flex-col h-[calc(100vh-12rem)]">
-        <div className="flex-1 flex flex-col items-center justify-center text-center font-mono">
+      <div className="flex flex-col h-full">
+        <div className="flex-1 flex flex-col items-center justify-center text-center font-mono px-4">
           <p className="text-xs text-muted-foreground mb-4 tracking-widest">
             [ AI ANALYSIS MODULE ]
           </p>
@@ -135,171 +129,162 @@ export function ChatInterface() {
             </button>
             <button
               className="text-left px-4 py-2 border border-border hover:border-primary hover:text-primary transition-colors"
-              onClick={() => setInput("Who is Virginia Giuffre and what did she testify?")}
+              onClick={() => setInput("Who is Virginia Giuffre?")}
             >
-              <span className="text-primary">$</span> Who is Virginia Giuffre and what did she testify?
+              <span className="text-primary">$</span> Who is Virginia Giuffre?
             </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex gap-2 pt-4 border-t border-border">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question about the Epstein documents..."
-            className="min-h-[60px] resize-none font-mono text-sm bg-background border-border"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e);
-              }
-            }}
-          />
-          <Button 
-            type="submit" 
-            disabled={isLoading || !input.trim()}
-            className="font-mono text-xs px-6"
-          >
-            Ask
-          </Button>
-        </form>
+        <div className="border-t border-border p-4 bg-background">
+          <form onSubmit={handleSubmit} className="flex gap-2 max-w-4xl mx-auto">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask a question about the Epstein documents..."
+              className="flex-1 h-12 px-4 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <Button 
+              type="submit" 
+              disabled={isLoading || !input.trim()}
+              className="h-12 px-6"
+            >
+              Ask
+            </Button>
+          </form>
+        </div>
       </div>
     );
   }
 
   // Chat with citations layout
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)]">
-      {/* Two-column layout */}
-      <div className="flex-1 flex gap-6 min-h-0">
-        {/* Left: Chat messages */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <ScrollArea className="flex-1" ref={scrollRef}>
-            <div className="space-y-4 py-4 pr-4">
-              {messages.map((message, index) => (
-                <div key={index}>
-                  {message.role === "user" ? (
-                    <div className="flex justify-end mb-4">
-                      <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 max-w-[90%]">
-                        <p className="text-sm">{message.content}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-card border border-border rounded-lg p-4">
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {message.content}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {isLoading && (
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-                    <div>
-                      <p className="text-sm">Searching documents...</p>
-                      <p className="text-xs text-muted-foreground">
-                        This may take 30-60 seconds
-                      </p>
+    <div className="flex flex-col h-full">
+      {/* Main content area */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* Left: Messages */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="max-w-3xl space-y-4">
+            {messages.map((message, index) => (
+              <div key={index}>
+                {message.role === "user" ? (
+                  <div className="flex justify-end mb-4">
+                    <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 max-w-[85%]">
+                      <p className="text-sm">{message.content}</p>
                     </div>
                   </div>
+                ) : (
+                  <div className="bg-card border border-border rounded-lg p-4 max-w-full">
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
+                      {message.content}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+            {isLoading && (
+              <div className="bg-card border border-border rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                  <div>
+                    <p className="text-sm">Searching documents...</p>
+                    <p className="text-xs text-muted-foreground">
+                      This may take 30-60 seconds
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
-          </ScrollArea>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Right: Citations panel */}
-        <div className="w-72 flex-shrink-0 border-l border-border pl-6 hidden lg:block">
-          <div className="sticky top-0">
-            <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+        <div className="w-80 flex-shrink-0 border-l border-border overflow-y-auto hidden lg:block">
+          <div className="p-4">
+            <h3 className="text-sm font-medium mb-3 sticky top-0 bg-background py-2">
               Citations ({activeSources.length})
             </h3>
-            <ScrollArea className="h-[calc(100vh-20rem)]">
-              <div className="space-y-3 pr-4">
-                {activeSources.length === 0 && !isLoading && (
-                  <p className="text-xs text-muted-foreground">
-                    Citations will appear here after you ask a question.
-                  </p>
-                )}
-                {isLoading && (
-                  <p className="text-xs text-muted-foreground">
-                    Loading citations...
-                  </p>
-                )}
-                {activeSources.map((source, i) => (
-                  <a
-                    key={i}
-                    href={source.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block border border-border rounded-lg p-3 hover:border-primary/50 transition-colors group"
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-medium flex-shrink-0">
-                        {i + 1}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
-                          {source.filename}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {source.excerpt.slice(0, 100)}...
-                        </p>
-                      </div>
+            <div className="space-y-3">
+              {activeSources.length === 0 && !isLoading && (
+                <p className="text-xs text-muted-foreground">
+                  Citations will appear here after you ask a question.
+                </p>
+              )}
+              {isLoading && (
+                <p className="text-xs text-muted-foreground">
+                  Loading citations...
+                </p>
+              )}
+              {activeSources.map((source, i) => (
+                <a
+                  key={i}
+                  href={source.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block border border-border rounded-lg p-3 hover:border-primary/50 transition-colors group"
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-medium flex-shrink-0">
+                      {i + 1}
                     </div>
-                  </a>
-                ))}
-              </div>
-            </ScrollArea>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
+                        {source.filename}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {source.excerpt.slice(0, 80)}...
+                      </p>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile citations (shown below on small screens) */}
+      {/* Mobile citations */}
       {activeSources.length > 0 && (
-        <div className="lg:hidden border-t border-border pt-4 mt-4">
-          <h3 className="text-sm font-medium mb-2">Citations ({activeSources.length})</h3>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {activeSources.slice(0, 5).map((source, i) => (
+        <div className="lg:hidden border-t border-border p-3 bg-card">
+          <p className="text-xs font-medium mb-2">Citations ({activeSources.length})</p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {activeSources.slice(0, 6).map((source, i) => (
               <a
                 key={i}
                 href={source.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-shrink-0 border border-border rounded px-3 py-2 text-xs hover:border-primary/50"
+                className="flex-shrink-0 border border-border rounded px-3 py-1.5 text-xs hover:border-primary/50 flex items-center gap-1"
               >
-                <FileText className="w-3 h-3 inline mr-1" />
-                {source.filename}
+                <FileText className="w-3 h-3" />
+                {source.filename.slice(0, 15)}...
               </a>
             ))}
           </div>
         </div>
       )}
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="flex gap-2 pt-4 border-t border-border mt-auto">
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question about the Epstein documents..."
-          className="min-h-[50px] resize-none font-mono text-sm bg-background border-border"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit(e);
-            }
-          }}
-        />
-        <Button 
-          type="submit" 
-          disabled={isLoading || !input.trim()}
-          className="font-mono text-xs px-6"
-        >
-          Ask
-        </Button>
-      </form>
+      {/* Input area - fixed at bottom */}
+      <div className="border-t border-border p-4 bg-background flex-shrink-0">
+        <form onSubmit={handleSubmit} className="flex gap-2 max-w-4xl mx-auto">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask another question..."
+            className="flex-1 h-12 px-4 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <Button 
+            type="submit" 
+            disabled={isLoading || !input.trim()}
+            className="h-12 px-6"
+          >
+            Ask
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
