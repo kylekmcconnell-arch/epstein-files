@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Heart, X, ExternalLink, Coins } from "lucide-react";
 
 export function FloatingSupport() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Hide on Ask page to avoid overlapping the input
+  if (pathname === "/ask") return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-40 font-mono">
