@@ -273,7 +273,9 @@ export default function MentionsPage() {
   };
 
   const handleSearch = (name: string) => {
-    router.push(`/search?q=${encodeURIComponent(name)}`);
+    const question = `Where and how is ${name} mentioned in the Epstein files?`;
+    sessionStorage.setItem("pendingQuestion", question);
+    router.push("/ask");
   };
 
   const totalNames = ALL_ITEMS.length;
