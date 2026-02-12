@@ -109,29 +109,36 @@ export function ChatInterface() {
             [ AI ANALYSIS MODULE ]
           </p>
           <h2 className="text-xl font-bold text-primary mb-2">QUERY INTERFACE</h2>
-          <p className="text-muted-foreground max-w-md mb-8 text-xs">
+          <p className="text-muted-foreground max-w-md mb-4 text-xs">
             Ask questions about the Epstein documents. AI will search and analyze
             400,000+ files to provide answers with citations.
           </p>
+          <div className="max-w-md mb-6 p-3 border border-primary/20 bg-primary/5 rounded-lg text-xs text-muted-foreground text-left">
+            <p className="text-primary font-medium mb-1">TIP: Be specific for better results</p>
+            <p>
+              Instead of &quot;Tell me about Bill Clinton&quot;, try &quot;What flights did Bill Clinton take on Epstein&apos;s plane?&quot; 
+              — specific questions help the AI find the most relevant documents.
+            </p>
+          </div>
           <div className="grid gap-2 text-xs text-left w-full max-w-md">
             <p className="text-muted-foreground mb-1">&gt; EXAMPLE QUERIES:</p>
             <button
               className="text-left px-4 py-2 border border-border hover:border-primary hover:text-primary transition-colors"
-              onClick={() => setInput("Where is Bill Clinton mentioned in the files?")}
+              onClick={() => setInput("What flights did Bill Clinton take on Epstein's plane?")}
             >
-              <span className="text-primary">$</span> Where is Bill Clinton mentioned in the files?
+              <span className="text-primary">$</span> What flights did Bill Clinton take on Epstein&apos;s plane?
             </button>
             <button
               className="text-left px-4 py-2 border border-border hover:border-primary hover:text-primary transition-colors"
-              onClick={() => setInput("What locations are mentioned most frequently?")}
+              onClick={() => setInput("What did Virginia Giuffre say about Prince Andrew in her deposition?")}
             >
-              <span className="text-primary">$</span> What locations are mentioned most frequently?
+              <span className="text-primary">$</span> What did Virginia Giuffre say about Prince Andrew in her deposition?
             </button>
             <button
               className="text-left px-4 py-2 border border-border hover:border-primary hover:text-primary transition-colors"
-              onClick={() => setInput("Who is Virginia Giuffre?")}
+              onClick={() => setInput("Who visited Epstein's island according to flight logs?")}
             >
-              <span className="text-primary">$</span> Who is Virginia Giuffre?
+              <span className="text-primary">$</span> Who visited Epstein&apos;s island according to flight logs?
             </button>
           </div>
         </div>
@@ -142,7 +149,7 @@ export function ChatInterface() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question about the Epstein documents..."
+              placeholder="Ask a specific question — e.g. 'What did Ghislaine Maxwell say about...'"
               className="flex-1 h-12 px-4 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <Button 
@@ -243,11 +250,16 @@ export function ChatInterface() {
               {activeSources.length >= 20 && (
                 <div className="flex items-start gap-2 p-3 border border-primary/20 bg-primary/5 rounded-lg">
                   <AlertTriangle className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Showing top {activeSources.length} citations. This query likely matches many more documents across the archive. Try the{" "}
-                    <a href="/search" className="text-primary hover:underline">Search page</a>{" "}
-                    for full results.
-                  </p>
+                  <div className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="mb-1">
+                      Showing top {activeSources.length} citations. This query likely matches many more documents.
+                    </p>
+                    <p>
+                      Try asking a more specific follow-up question to narrow results, or visit the{" "}
+                      <a href="/search" className="text-primary hover:underline">Search page</a>{" "}
+                      to browse all matches.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -283,7 +295,7 @@ export function ChatInterface() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask another question..."
+            placeholder="Ask a follow-up or new question — be specific for best results..."
             className="flex-1 h-12 px-4 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <Button 

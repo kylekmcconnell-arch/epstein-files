@@ -128,9 +128,13 @@ function SearchContent() {
         <div className="flex items-start gap-3 mb-6 p-3 border border-primary/30 bg-primary/5 rounded-lg text-xs text-muted-foreground">
           <AlertTriangle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
           <div>
-            <p>
+            <p className="mb-1.5">
               <span className="text-primary font-medium">Showing {results.length} documents</span> — this query likely matches thousands more across the 400,000+ file archive. 
-              Results are ranked by relevance. Try more specific keywords to narrow results, or load more below.
+              Results are ranked by relevance.
+            </p>
+            <p>
+              <span className="text-primary">Tip:</span> Use specific names, dates, or phrases for better results. 
+              For example, instead of &quot;Jeffrey Epstein&quot;, try &quot;Epstein flight logs 2002&quot; or &quot;Epstein Palm Beach police report&quot;.
             </p>
           </div>
         </div>
