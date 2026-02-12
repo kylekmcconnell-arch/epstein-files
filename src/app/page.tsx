@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { StatsDisplay } from "@/components/StatsDisplay";
 import { AskInput } from "@/components/AskInput";
+import { SupportBanner } from "@/components/SupportBanner";
 
 export default function HomePage() {
   return (
@@ -105,6 +106,11 @@ export default function HomePage() {
             </CardContent>
           </Card>
         </Link>
+      </div>
+
+      {/* Support */}
+      <div className="mb-6">
+        <SupportBanner />
       </div>
 
       {/* Disclaimer */}
