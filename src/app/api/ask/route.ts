@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     // Search Apify for relevant documents
     let results;
     try {
-      results = await searchApify(searchTerms, 20);
+      results = await searchApify(searchTerms, 50);
     } catch (error: any) {
       console.error("Apify search failed:", error);
       return NextResponse.json({
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     // Build context from search results
     const context = results
-      .slice(0, 10) // Limit context to top 10 results
+      .slice(0, 25) // Limit context to top 25 results
       .map((doc, i) => `[Document ${i + 1}: ${doc.originFileName}]\n${doc.extractedText.slice(0, 1500)}`)
       .join("\n\n---\n\n");
 
@@ -89,7 +89,7 @@ ${context}`,
     const answer = completion.choices[0]?.message?.content || "Unable to generate a response.";
 
     // Format sources
-    const sources = results.slice(0, 10).map((doc) => ({
+    const sources = results.slice(0, 25).map((doc) => ({
       filename: doc.originFileName,
       sourceUrl: doc.originFileUri,
       excerpt: doc.extractedText.slice(0, 200) + "...",
