@@ -13,6 +13,15 @@ interface ApifyResult {
   chunks: { text: string; highlight: string[] }[];
 }
 
+// Strip HTML tags and clean up text
+function cleanText(text: string): string {
+  return text
+    .replace(/<\/?em>/gi, '') // Remove <em> tags
+    .replace(/<[^>]*>/g, '') // Remove any other HTML tags
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
+}
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
@@ -112,53 +121,46 @@ function SearchContent() {
         </div>
       ) : (
         <div className="space-y-4">
-          {results.map((result, i) => (
-            <div
-              key={`${result.filename}-${i}`}
-              className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-4 mb-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  <span className="font-medium text-sm">{result.filename}</span>
-                </div>
-                <a
-                  href={result.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  View Original <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-              
-              <div className="space-y-2">
-                {result.chunks.slice(0, 2).map((chunk, j) => (
-                  <div key={j} className="text-sm text-muted-foreground">
-                    <p className="line-clamp-3">
-                      {chunk.text.slice(0, 500)}
-                      {chunk.text.length > 500 && "..."}
-                    </p>
-                    {chunk.highlight.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {chunk.highlight.slice(0, 3).map((h, k) => (
-                          <Badge key={k} variant="secondary" className="text-xs">
-                            ...{h.slice(0, 100)}...
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+          {results.map((result, i) => {
+            // Combine and clean all chunk text for this document
+            const fullText = result.chunks
+              .map(c => cleanText(c.text))
+              .join(' ')
+              .slice(0, 600);
+            
+            return (
+              <div
+                key={`${result.filename}-${i}`}
+                className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+                    <span className="font-medium text-sm">{result.filename}</span>
                   </div>
-                ))}
-              </div>
-              
-              {result.chunks.length > 2 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  +{result.chunks.length - 2} more matches in this document
+                  <a
+                    href={result.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-primary hover:underline flex-shrink-0"
+                  >
+                    View Original <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {fullText}
+                  {fullText.length >= 600 && "..."}
                 </p>
-              )}
-            </div>
-          ))}
+                
+                {result.chunks.length > 1 && (
+                  <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border/50">
+                    {result.chunks.length} matching sections in this document
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

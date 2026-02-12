@@ -1,8 +1,8 @@
-import { SearchBar } from "@/components/SearchBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import Image from "next/image";
 import { StatsDisplay } from "@/components/StatsDisplay";
+import { AskInput } from "@/components/AskInput";
 
 export default function HomePage() {
   return (
@@ -10,40 +10,36 @@ export default function HomePage() {
       {/* Hero Section */}
       <div className="relative py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          {/* Left side - Title and Search */}
+          {/* Left side - Title and Ask */}
           <div>
             <div className="mb-8">
               <p className="text-xs text-muted-foreground mb-3 tracking-widest uppercase">
-                Document Analysis System
+                AI-Powered Document Analysis
               </p>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
                 Epstein Files
               </h1>
               <p className="text-base text-muted-foreground mt-3 max-w-md">
-                Search and analyze publicly released court documents with AI-powered insights.
+                Ask questions about 400,000+ court documents and get AI-powered answers with citations.
               </p>
             </div>
 
             <div className="space-y-3 text-sm text-muted-foreground mb-8">
               <p className="flex items-center gap-3">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
-                Full-text search across all documents
+                Ask anything about the Epstein case
               </p>
               <p className="flex items-center gap-3">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
-                AI-powered semantic analysis
+                AI searches 400,000+ documents instantly
               </p>
               <p className="flex items-center gap-3">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
-                Name mention tracking & extraction
+                Get answers with source citations
               </p>
             </div>
 
-            <SearchBar
-              size="large"
-              placeholder="Search documents..."
-              className="max-w-xl"
-            />
+            <AskInput />
           </div>
 
           {/* Right side - ASCII Art Image */}

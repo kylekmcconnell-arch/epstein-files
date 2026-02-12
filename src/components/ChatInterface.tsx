@@ -25,6 +25,20 @@ export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeSources, setActiveSources] = useState<Source[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const initializedRef = useRef(false);
+
+  // Check for pending question from homepage
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    
+    const pendingQuestion = sessionStorage.getItem("pendingQuestion");
+    if (pendingQuestion) {
+      sessionStorage.removeItem("pendingQuestion");
+      // Auto-submit the question
+      submitQuestion(pendingQuestion);
+    }
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -37,13 +51,10 @@ export function ChatInterface() {
     }
   }, [messages]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  const submitQuestion = async (question: string) => {
+    if (!question.trim() || isLoading) return;
 
-    const userMessage = input.trim();
-    setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setMessages((prev) => [...prev, { role: "user", content: question }]);
     setIsLoading(true);
     setActiveSources([]);
 
@@ -51,7 +62,7 @@ export function ChatInterface() {
       const response = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: userMessage }),
+        body: JSON.stringify({ question }),
       });
 
       const data = await response.json();
@@ -85,6 +96,14 @@ export function ChatInterface() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    const question = input.trim();
+    setInput("");
+    submitQuestion(question);
   };
 
   // Empty state
